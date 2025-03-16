@@ -8,6 +8,7 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "react-native": "./dist/index.js",
       "browser": "./dist/browser.js",
       "require": "./dist/index.js",
       "import": "./dist/index.mjs"
@@ -35,10 +36,13 @@
     "hyperliquid",
     "api",
     "sdk",
+    "crypto",
+    "exchange",
+    "trading",
+    "typescript",
+    "react-native",
     "rest",
     "websocket",
-    "trading",
-    "crypto",
     "blockchain",
     "arbitrum",
     "dex"

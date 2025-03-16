@@ -11,7 +11,7 @@ export class WebSocketClient {
     private initialReconnectDelay: number = 1000;
     private maxReconnectDelay: number = 30000;
     private eventHandlers: Map<string, Set<Function>> = new Map();
-    private WebSocketImpl: typeof WebSocket | null = null;
+    private WebSocketImpl: typeof WebSocket | any = null;
     private connected: boolean = false;
     private connecting: boolean = false;
     private connectionPromise: Promise<void> | null = null;
@@ -24,13 +24,17 @@ export class WebSocketClient {
         this.url = testnet ? CONSTANTS.WSS_URLS.TESTNET : CONSTANTS.WSS_URLS.PRODUCTION;
         
         // Determine which WebSocket implementation to use
-        if (environment.hasNativeWebSocket()) {
+        if (environment.isReactNative) {
+            // React Native has global WebSocket
+            this.WebSocketImpl = WebSocket;
+        } else if (environment.hasNativeWebSocket()) {
             this.WebSocketImpl = WebSocket;
         } else if (environment.isNode) {
             try {
                 // Try to load ws package
                 this.WebSocketImpl = (globalThis as any).require('ws');
             } catch (error) {
+                console.warn('WebSocket implementation not found. Ensure "ws" package is installed for Node.js environments.');
                 this.WebSocketImpl = null;
             }
         }
@@ -56,7 +60,9 @@ export class WebSocketClient {
             try {
                 if (!this.WebSocketImpl) {
                     if (environment.isNode) {
-                        throw new Error('This SDK requires Node.js version 22 or higher as earlier versions do not have support for the NodeJS native websockets.');
+                        throw new Error('WebSocket support not available. For Node.js, please install the "ws" package.');
+                    } else if (environment.isReactNative) {
+                        throw new Error('WebSocket support not found in React Native environment.');
                     } else {
                         throw new Error('WebSocket support is not available in this environment.');
                     }
@@ -64,7 +70,8 @@ export class WebSocketClient {
 
                 this.ws = new this.WebSocketImpl(this.url);
 
-                this.ws.onopen = () => {
+                // Define event handlers in a cross-platform way
+                const handleOpen = () => {
                     console.log('WebSocket connected');
                     this.connected = true;
                     this.connecting = false;
@@ -75,18 +82,26 @@ export class WebSocketClient {
                     resolve();
                 };
 
-                this.ws.onmessage = (event: MessageEvent) => {
-                    const message = JSON.parse(event.data);
-                    
-                    // Handle pong responses
-                    if (message.channel === 'pong') {
-                        this.lastPongReceived = Date.now();
+                const handleMessage = (event: any) => {
+                    try {
+                        // Handle different message event formats between platforms
+                        const data = typeof event.data === 'string' 
+                            ? JSON.parse(event.data)
+                            : JSON.parse(event.data.toString());
+                        
+                        // Handle pong responses
+                        if (data.channel === 'pong') {
+                            this.lastPongReceived = Date.now();
+                        }
+                        
+                        this.emit('message', data);
+                    } catch (error) {
+                        console.error('Error parsing WebSocket message:', error);
+                        this.emit('error', error);
                     }
-                    
-                    this.emit('message', message);
                 };
 
-                this.ws.onerror = (event: Event) => {
+                const handleError = (event: any) => {
                     console.error('WebSocket error:', event);
                     this.emit('error', event);
                     if (!this.connected) {
@@ -95,7 +110,7 @@ export class WebSocketClient {
                     }
                 };
 
-                this.ws.onclose = () => {
+                const handleClose = () => {
                     console.log('WebSocket disconnected');
                     this.connected = false;
                     this.connecting = false;
@@ -103,8 +118,24 @@ export class WebSocketClient {
                     this.emit('close');
                     this.reconnect();
                 };
+
+                // Assign event handlers based on environment
+                if (environment.isNode && !environment.isReactNative) {
+                    // Node.js ws package has different event handling
+                    this.ws.on('open', handleOpen);
+                    this.ws.on('message', handleMessage);
+                    this.ws.on('error', handleError);
+                    this.ws.on('close', handleClose);
+                } else {
+                    // Browser and React Native
+                    this.ws.onopen = handleOpen;
+                    this.ws.onmessage = handleMessage;
+                    this.ws.onerror = handleError;
+                    this.ws.onclose = handleClose;
+                }
             } catch (error) {
                 this.connecting = false;
+                console.error('WebSocket connection error:', error);
                 reject(error);
             }
         });
