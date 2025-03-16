@@ -59,22 +59,28 @@ export class SymbolConversion {
             this.assetToIndexMap.clear();
             this.exchangeToInternalNameMap.clear();
             
-            // Handle perpetual assets
+            // Handle perpetual assets (unchanged)
             perpMeta[0].universe.forEach((asset: { name: string }, index: number) => {
                 const internalName = `${asset.name}-PERP`;
                 this.assetToIndexMap.set(internalName, index);
                 this.exchangeToInternalNameMap.set(asset.name, internalName);
             });
 
-            // Handle spot assets
-            spotMeta[0].tokens.forEach((token: any) => {
-                const universeItem = spotMeta[0].universe.find((item: any) => item.tokens[0] === token.index);
-                if (universeItem) {
-                    const internalName = `${token.name}-SPOT`;
-                    const exchangeName = universeItem.name;
-                    const index = universeItem.index;
-                    this.assetToIndexMap.set(internalName, 10000 + index);
-                    this.exchangeToInternalNameMap.set(exchangeName, internalName);
+            // Handle spot assets with base-quote format
+            spotMeta[0].universe.forEach((market: any) => {
+                const baseToken = spotMeta[0].tokens.find((t: any) => t.index === market.tokens[0]);
+                const quoteToken = spotMeta[0].tokens.find((t: any) => t.index === market.tokens[1]);
+                
+                if (baseToken && quoteToken) {
+                    // New format: BASE-QUOTE (e.g., "PURR-USDC")
+                    const baseQuoteFormat = `${baseToken.name}-${quoteToken.name}`;
+                    
+                    // Store the market index (same indexing as before)
+                    const marketIndex = 10000 + market.index;
+                    
+                    // Map using the base-quote format
+                    this.assetToIndexMap.set(baseQuoteFormat, marketIndex);
+                    this.exchangeToInternalNameMap.set(market.name, baseQuoteFormat);
                 }
             });
         } catch (error) {
@@ -84,11 +90,13 @@ export class SymbolConversion {
 
     public async getExchangeName(internalName: string): Promise<string | undefined> {
         await this.ensureInitialized();
+        
         for (const [exchangeName, name] of this.exchangeToInternalNameMap.entries()) {
             if (name === internalName) {
                 return exchangeName;
             }
         }
+        
         return undefined;
     }
 
@@ -105,7 +113,7 @@ export class SymbolConversion {
         for (const [asset, index] of this.assetToIndexMap.entries()) {
             if (asset.endsWith('-PERP')) {
                 perp.push(asset);
-            } else if (asset.endsWith('-SPOT')) {
+            } else if (index >= 10000) { // Spot assets have indices >= 10000
                 spot.push(asset);
             }
         }
@@ -127,14 +135,9 @@ export class SymbolConversion {
             rSymbol = this.exchangeToInternalNameMap.get(symbol) || symbol;
         }
 
-        if (symbolMode === "SPOT") {
-            if (!rSymbol.endsWith("-SPOT")) {
-                rSymbol = symbol + "-SPOT";
-            }
-        } else if (symbolMode === "PERP") {
-            if (!rSymbol.endsWith("-PERP")) {
-                rSymbol = symbol + "-PERP";
-            }
+        // No special handling for SPOT as we now use BASE-QUOTE format
+        if (symbolMode === "PERP" && !rSymbol.endsWith("-PERP")) {
+            rSymbol = symbol + "-PERP";
         }
 
         return rSymbol;
