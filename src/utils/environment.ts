@@ -3,9 +3,14 @@ export const environment = {
     isNode: typeof process !== 'undefined' && process.versions != null && process.versions.node != null,
     isWebWorker: typeof self === 'object' && self.constructor && self.constructor.name === 'DedicatedWorkerGlobalScope',
     isServiceWorker: typeof self === 'object' && self.constructor && self.constructor.name === 'ServiceWorkerGlobalScope',
+    isReactNative: typeof navigator !== 'undefined' && navigator.product === 'ReactNative',
     
     // Helper methods
     hasNativeWebSocket(): boolean {
+        if (this.isReactNative) {
+            return true; // React Native has native WebSocket support
+        }
+        
         if (this.isBrowser || this.isWebWorker) {
             return 'WebSocket' in (this.isBrowser ? window : self);
         }
@@ -21,6 +26,11 @@ export const environment = {
     },
 
     supportsWebSocket(): boolean {
+        // React Native has built-in WebSocket support
+        if (this.isReactNative) {
+            return true;
+        }
+        
         // First check for native support
         if (this.hasNativeWebSocket()) {
             return true;
@@ -49,6 +59,11 @@ export const environment = {
     },
     
     supportsCrypto(): boolean {
+        // React Native has crypto through react-native-crypto or other polyfills
+        if (this.isReactNative) {
+            return true; // We'll assume crypto polyfills are available or not needed
+        }
+        
         return (
             (this.isBrowser && 'crypto' in window) ||
             (this.isWebWorker && 'crypto' in self) ||
