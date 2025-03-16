@@ -19,15 +19,16 @@ export interface Order extends BaseOrder {
 }
 
 export interface OrderRequest {
-    coin: string;
-    is_buy: boolean;
-    sz: number | string;
-    limit_px: number | string;
-    order_type: OrderType;
-    reduce_only: boolean;
+    coin?: string;
+    is_buy?: boolean;
+    sz?: number | string;
+    limit_px?: number | string;
+    order_type?: OrderType;
+    reduce_only?: boolean;
     cloid?: string;
     grouping?: Grouping;
     builder?: Builder;
+    orders?: Order[];
 }
 
 interface BaseOrder {
@@ -357,7 +358,7 @@ export type SpotAssetCtx = {
     dayBaseVlm: string;
     dayNtlVlm: string;
     markPx: string;
-    midPx: string;
+    midPx?: string;
     prevDayPx: string;
     totalSupply: string;
 };

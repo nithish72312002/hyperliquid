@@ -90,7 +90,30 @@ export class ExchangeAPI {
     const vaultAddress = this.getVaultAddress();
     const grouping = (orderRequest as any).grouping || "na";
     const builder = (orderRequest as any).builder;
-    const ordersArray = [(orderRequest as Order)];
+    
+    // Extract orders correctly, handling both single order and array of orders
+    let ordersArray: Order[];
+    if (Array.isArray(orderRequest.orders)) {
+      ordersArray = orderRequest.orders;
+    } else {
+      // Handle single order case (backward compatibility)
+      // Check if required properties exist
+      if (!orderRequest.coin || orderRequest.is_buy === undefined || 
+          orderRequest.limit_px === undefined || orderRequest.sz === undefined ||
+          orderRequest.order_type === undefined) {
+        throw new Error('Missing required order properties');
+      }
+      
+      ordersArray = [{ 
+        coin: orderRequest.coin,
+        is_buy: orderRequest.is_buy,
+        limit_px: orderRequest.limit_px,
+        sz: orderRequest.sz,
+        reduce_only: orderRequest.reduce_only ?? false,
+        order_type: orderRequest.order_type,
+        cloid: (orderRequest as any).cloid
+      }];
+    }
 
     try {
       const assetIndexCache = new Map<string, number>();
