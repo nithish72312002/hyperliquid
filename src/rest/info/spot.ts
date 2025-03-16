@@ -13,22 +13,22 @@ export class SpotInfoAPI {
     }
 
     async getSpotMeta(rawResponse: boolean = false): Promise<SpotMeta> {
-        const response = await this.httpApi.makeRequest({ type: InfoType.SPOT_META });
+        const response = await this.httpApi.makeRequest<SpotMeta>({ type: InfoType.SPOT_META });
         return rawResponse ? response : await this.symbolConversion.convertResponse(response, ["name", "coin", "symbol"], "SPOT");
     }
 
     async getSpotClearinghouseState(user: string, rawResponse: boolean = false): Promise<SpotClearinghouseState> {
-        const response = await this.httpApi.makeRequest({ type: InfoType.SPOT_CLEARINGHOUSE_STATE, user: user });
+        const response = await this.httpApi.makeRequest<SpotClearinghouseState>({ type: InfoType.SPOT_CLEARINGHOUSE_STATE, user: user });
         return rawResponse ? response : await this.symbolConversion.convertResponse(response, ["name", "coin", "symbol"], "SPOT");
     }
 
     async getSpotMetaAndAssetCtxs(rawResponse: boolean = false): Promise<SpotMetaAndAssetCtxs> {
-        const response = await this.httpApi.makeRequest({ type: InfoType.SPOT_META_AND_ASSET_CTXS });
+        const response = await this.httpApi.makeRequest<SpotMetaAndAssetCtxs>({ type: InfoType.SPOT_META_AND_ASSET_CTXS });
         return rawResponse ? response : await this.symbolConversion.convertResponse(response);
     }
 
     async getTokenDetails(tokenId: string, rawResponse: boolean = false): Promise<any> {
-        const response = await this.httpApi.makeRequest({ 
+        const response = await this.httpApi.makeRequest<any>({ 
             type: InfoType.TOKEN_DETAILS,
             tokenId: tokenId
         }, 20);
@@ -37,7 +37,7 @@ export class SpotInfoAPI {
     }
     
     async getSpotDeployState(user: string, rawResponse: boolean = false): Promise<any> {
-        const response = await this.httpApi.makeRequest({ 
+        const response = await this.httpApi.makeRequest<any>({ 
             type: InfoType.SPOT_DEPLOY_STATE,
             user: user
         }, 20);
