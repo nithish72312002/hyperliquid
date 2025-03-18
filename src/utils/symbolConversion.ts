@@ -5,6 +5,7 @@ import { MetaAndAssetCtxs, SpotMetaAndAssetCtxs } from '../types';
 export class SymbolConversion {
     private assetToIndexMap: Map<string, number> = new Map();
     private exchangeToInternalNameMap: Map<string, string> = new Map();
+    private spotTokensSet: Set<string> = new Set(); // Track spot tokens specifically
     private httpApi: HttpApi;
     private refreshIntervalMs: number = 60000;
     private refreshInterval: any = null;
@@ -58,6 +59,7 @@ export class SymbolConversion {
 
             this.assetToIndexMap.clear();
             this.exchangeToInternalNameMap.clear();
+            this.spotTokensSet.clear(); // Clear spot tokens set
             
             // Handle perpetual assets (unchanged)
             perpMeta[0].universe.forEach((asset: { name: string }, index: number) => {
@@ -65,6 +67,15 @@ export class SymbolConversion {
                 this.assetToIndexMap.set(internalName, index);
                 this.exchangeToInternalNameMap.set(asset.name, internalName);
             });
+
+            // Track all spot tokens
+            if (spotMeta[0].tokens && Array.isArray(spotMeta[0].tokens)) {
+                spotMeta[0].tokens.forEach((token: any) => {
+                    if (token.name) {
+                        this.spotTokensSet.add(token.name);
+                    }
+                });
+            }
 
             // Handle spot assets with base-quote format
             spotMeta[0].universe.forEach((market: any) => {
@@ -135,11 +146,20 @@ export class SymbolConversion {
             rSymbol = this.exchangeToInternalNameMap.get(symbol) || symbol;
         }
 
-        // No special handling for SPOT as we now use BASE-QUOTE format
-        if (symbolMode === "PERP" && !rSymbol.endsWith("-PERP")) {
-            rSymbol = symbol + "-PERP";
+        // Special handling for tokens that exist in both PERP and SPOT
+        if (symbolMode === "PERP") {
+            // In PERP mode, add -PERP to symbols that don't already have it
+            if (!rSymbol.endsWith("-PERP")) {
+                rSymbol = symbol + "-PERP";
+            }
+        } else if (symbolMode === "SPOT") {
+            // In SPOT mode, ensure we don't add -PERP to spot tokens
+            if (this.spotTokensSet.has(symbol)) {
+                // If it's a known spot token, use the original name
+                rSymbol = symbol;
+            }
         }
-
+        
         return rSymbol;
     }
 
