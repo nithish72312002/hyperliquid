@@ -42,8 +42,8 @@ interface MultiOrder extends BaseOrder {
 }
 
 export interface Builder {
-    address: string;
-    fee: number;
+    b: string;  // Builder address
+    f: number;  // Fee
 }
 
 export interface AllMids {
