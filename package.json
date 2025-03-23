@@ -51,7 +51,7 @@
   "license": "MIT",
   "dependencies": {
     "@msgpack/msgpack": "^3.0.0-beta2",
-    "axios": "^1.7.2",
+    "axios": "^1.8.4",
     "ethers": "^6.13.2"
   },
   "devDependencies": {

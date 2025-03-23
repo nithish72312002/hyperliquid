@@ -44,4 +44,53 @@ export class SpotInfoAPI {
         
         return rawResponse ? response : await this.symbolConversion.convertResponse(response);
     }
+
+    /**
+     * Returns a list of assets that can be transferred between HyperEVM and spot
+     * Only assets with an EVM contract can be transferred
+     * @param user The user address to check transferrable assets for
+     * @param rawResponse Whether to return the raw response without symbol conversion
+     * @returns Array of transferrable assets with coin name, token index, total balance, hold amount, and withdrawable amount
+     */
+    async getTransferrableAssets(user: string, rawResponse: boolean = false): Promise<Array<{
+        coin: string;
+        token: number;
+        total: string;
+        hold: string;
+        withdrawable: string;
+    }>> {
+        // Get both the clearinghouse state and meta data
+        const [clearinghouseState, meta] = await Promise.all([
+            this.getSpotClearinghouseState(user, true),
+            this.getSpotMeta(true)
+        ]);
+
+        // Create a mapping of token index to whether it has an EVM contract
+        const tokenEvmMapping = new Map<number, boolean>();
+        
+        // Access the tokens array and check for evmContract property
+        // We need to use type assertion here since the type definition doesn't include evmContract
+        meta.tokens.forEach((token: any) => {
+            // A token is transferrable if it has an evmContract property that's not null
+            tokenEvmMapping.set(token.index, !!token.evmContract);
+        });
+
+        // Filter balances to only include those with EVM contracts
+        // We need to use type assertion here since the type definition doesn't include token field
+        const transferrableAssets = (clearinghouseState.balances as any[])
+            .filter(balance => {
+                // Only include tokens that have an EVM contract
+                return tokenEvmMapping.get(balance.token);
+            })
+            .map(balance => ({
+                coin: balance.coin,
+                token: balance.token,
+                total: balance.total,
+                hold: balance.hold,
+                withdrawable: (parseFloat(balance.total) - parseFloat(balance.hold)).toString()
+            }));
+
+        // Apply symbol conversion if needed
+        return rawResponse ? transferrableAssets : await this.symbolConversion.convertResponse(transferrableAssets, ["name", "coin", "symbol"], "SPOT");
+    }
 }
