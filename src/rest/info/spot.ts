@@ -130,4 +130,56 @@ export class SpotInfoAPI {
         // Apply symbol conversion if needed
         return rawResponse ? transferrableAssets : await this.symbolConversion.convertResponse(transferrableAssets, ["name", "coin", "symbol"], "SPOT");
     }
+
+    /**
+     * Returns a list of all coins that have an EVM contract
+     * @param rawResponse Whether to return the raw response without symbol conversion
+     * @returns Array of coins with EVM contracts, including name, EVM address, system address, and token ID
+     */
+    async getEvmTokens(rawResponse: boolean = false): Promise<Array<{
+        name: string;
+        index: number;
+        evmAddress: string;
+        systemAddress: string;
+        tokenId: string;
+    }>> {
+        // Get the spot metadata
+        const meta = await this.getSpotMeta(true);
+        
+        // Filter tokens to only include those with EVM contracts
+        const evmTokens = (meta.tokens as any[])
+            .filter(token => token.evmContract)
+            .map(token => {
+                // Calculate system address
+                // HYPE is a special case with a fixed system address
+                let systemAddress: string;
+                if (token.name === "HYPE") {
+                    systemAddress = "0x2222222222222222222222222222222222222222";
+                } else {
+                    // For all tokens (including token index 0):
+                    // 1. Convert token index to hex
+                    // 2. Start with 0x20
+                    // 3. Fill the middle with zeros
+                    // 4. End with the hex value
+                    const hexIndex = token.index.toString(16);
+                    
+                    // Calculate how many zeros we need to maintain 40 hex digits total
+                    const zeroCount = 40 - 2 - hexIndex.length; // 40 total - 2 for '20' prefix - length of hex
+                    
+                    // Construct the address: 0x + 20 + zeros + hexIndex
+                    systemAddress = `0x20${"0".repeat(zeroCount)}${hexIndex}`;
+                }
+                
+                return {
+                    name: token.name,
+                    index: token.index,
+                    evmAddress: token.evmContract.address,
+                    systemAddress,
+                    tokenId: token.tokenId || ""
+                };
+            });
+
+        // Apply symbol conversion if needed
+        return rawResponse ? evmTokens : await this.symbolConversion.convertResponse(evmTokens, ["name"], "SPOT");
+    }
 }
