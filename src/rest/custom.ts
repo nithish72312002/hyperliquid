@@ -82,14 +82,22 @@ export class CustomOperations {
         try {
             const address = this.getUserAddress();
             const openOrders: UserOpenOrders = await this.infoApi.getUserOpenOrders(address);
-
+            
+            // Get all spot assets to identify spot orders
+            const { spot } = await this.getAllAssets();
+            const spotSymbols = new Set(spot);
+            
             // Process all orders to get proper symbol names
             for (let order of openOrders) {
                 order.coin = await this.symbolConversion.convertSymbol(order.coin);
             }
 
-            // Filter only spot orders (those that don't end with "-PERP")
-            const spotOrders = openOrders.filter(order => !order.coin.endsWith('-PERP'));
+            // Filter only spot orders by matching against known spot symbols
+            const spotOrders = openOrders.filter(order => {
+                const isSpot = spotSymbols.has(order.coin) || 
+                               (!order.coin.endsWith('-PERP') && order.coin.includes('-'));
+                return isSpot;
+            });
 
             if (spotOrders.length === 0) {
                 throw new Error('No spot orders to cancel');
@@ -111,14 +119,21 @@ export class CustomOperations {
         try {
             const address = this.getUserAddress();
             const openOrders: UserOpenOrders = await this.infoApi.getUserOpenOrders(address);
-
+            
+            // Get all perp assets to identify perp orders
+            const { perp } = await this.getAllAssets();
+            const perpSymbols = new Set(perp);
+            
             // Process all orders to get proper symbol names
             for (let order of openOrders) {
                 order.coin = await this.symbolConversion.convertSymbol(order.coin);
             }
 
-            // Filter only perpetual orders (those that end with "-PERP")
-            const perpOrders = openOrders.filter(order => order.coin.endsWith('-PERP'));
+            // Filter only perpetual orders by matching against known perp symbols
+            const perpOrders = openOrders.filter(order => {
+                const isPerp = perpSymbols.has(order.coin) || order.coin.endsWith('-PERP');
+                return isPerp;
+            });
 
             if (perpOrders.length === 0) {
                 throw new Error('No perpetual orders to cancel');
