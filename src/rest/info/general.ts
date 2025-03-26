@@ -321,4 +321,45 @@ export class GeneralInfoAPI {
         });
         return rawResponse ? response : await this.symbolConversion.convertResponse(response);
     }
+
+    async webData2(user?: string, rawResponse: boolean = false): Promise<any> {
+        const params: any = {
+            type: InfoType.WEB_DATA2,
+            user: user || "0x0000000000000000000000000000000000000000"
+        };
+        
+        const response = await this.httpApi.makeRequest(params);
+        
+        if (rawResponse) {
+            return response;
+        } else {
+            // First, get the regular converted response
+            const typedResponse = response as any;
+            const convertedResponse = await this.symbolConversion.convertSymbolsInObject({...typedResponse});
+            
+            // Only fix the two problematic sections:
+            
+            // 1. Fix meta section - apply PERP mode
+            if (convertedResponse.meta && convertedResponse.meta.universe) {
+                // Re-convert just the meta section with PERP mode
+                convertedResponse.meta = await this.symbolConversion.convertSymbolsInObject(
+                    typedResponse.meta, 
+                    ["name", "coin", "symbol"], 
+                    "PERP"
+                );
+            }
+            
+            // 2. Fix spotState section - apply SPOT mode
+            if (convertedResponse.spotState && convertedResponse.spotState.balances) {
+                // Re-convert just the spotState section with SPOT mode
+                convertedResponse.spotState = await this.symbolConversion.convertSymbolsInObject(
+                    typedResponse.spotState,
+                    ["coin", "symbol"],
+                    "SPOT"
+                );
+            }
+            
+            return convertedResponse;
+        }
+    }
 }

@@ -140,8 +140,31 @@ export class WebSocketSubscriptions {
 
         const messageHandler = async (message: any) => {
             if (message.channel === 'webData2') {
-                message = await this.symbolConversion.convertSymbolsInObject(message);
-                callback(message.data);
+                // Apply standard conversion first
+                const convertedMessage = await this.symbolConversion.convertSymbolsInObject(message);
+                
+                // Apply specialized conversion for problematic sections (meta and spotState)
+                if (convertedMessage.data) {
+                    // 1. Fix meta section - apply PERP mode
+                    if (convertedMessage.data.meta && convertedMessage.data.meta.universe) {
+                        convertedMessage.data.meta = await this.symbolConversion.convertSymbolsInObject(
+                            message.data.meta, 
+                            ["name", "coin", "symbol"], 
+                            "PERP"
+                        );
+                    }
+                    
+                    // 2. Fix spotState section - apply SPOT mode
+                    if (convertedMessage.data.spotState && convertedMessage.data.spotState.balances) {
+                        convertedMessage.data.spotState = await this.symbolConversion.convertSymbolsInObject(
+                            message.data.spotState,
+                            ["coin", "symbol"],
+                            "SPOT"
+                        );
+                    }
+                }
+                
+                callback(convertedMessage.data);
             }
         };
 

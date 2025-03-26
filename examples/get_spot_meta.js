@@ -5,14 +5,15 @@ async function showBaseQuoteMapping() {
   try {
     // Initialize the SDK
     const sdk = new Hyperliquid({
-      testnet: false,       // Use mainnet
+      testnet: true,       // Use mainnet
       enableWs: false       // Disable WebSocket
     });
-
+ 
     console.log('Fetching spot market data to show base-quote token mapping...');
-    
+    await sdk.initialize();
+
     // Get the raw data
-    const spotMetaAndAssetCtxs = await sdk.info.spot.getSpotMetaAndAssetCtxs(true);
+    const spotMetaAndAssetCtxs = await sdk.info.spot.getSpotMetaAndAssetCtxs(false);
     const spotMeta = spotMetaAndAssetCtxs[0];
     
     // Create our own mapping using BASE-QUOTE format instead of BASE-SPOT

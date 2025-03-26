@@ -203,6 +203,11 @@ export class InfoAPI {
         return this.generalAPI.preTransferCheck(user, source, rawResponse);
     }
 
+    async webData2(user?: string, rawResponse: boolean = false): Promise<any> {
+        await this.parent.ensureInitialized();
+        return this.generalAPI.webData2(user, rawResponse);
+    }
+
     async referral(user: string, rawResponse: boolean = false): Promise<Referral> {
         await this.parent.ensureInitialized();
         return this.generalAPI.referral(user, rawResponse);
