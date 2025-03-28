@@ -56,9 +56,10 @@ export class WebSocketSubscriptions {
     }
 
     private async unsubscribe(subscription: { type: string; [key: string]: any }): Promise<void> {
-        const convertedSubscription = await this.symbolConversion.convertSymbolsInObject(subscription);
-        await this.ws.sendMessage({ method: 'unsubscribe', subscription: convertedSubscription });
-        // Decrement subscription count when unsubscribing
+        // Remove this line: const convertedSubscription = await this.symbolConversion.convertSymbolsInObject(subscription);
+        
+        // Use the subscription directly like in the subscribe method
+        await this.ws.sendMessage({ method: 'unsubscribe', subscription: subscription });
         this.ws.decrementSubscriptionCount();
     }
 
