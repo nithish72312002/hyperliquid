@@ -349,10 +349,11 @@ export class WebSocketSubscriptions {
     }
 
     async subscribeToUserActiveAssetData(user: string, coin: string, callback: (data: WsUserActiveAssetData & { user: string }) => void): Promise<void> {
-        const subscriptionKey = this.getSubscriptionKey('activeAssetData', { user, coin });
+        const convertedCoin = await this.symbolConversion.convertSymbol(coin, "reverse");
+        const subscriptionKey = this.getSubscriptionKey('activeAssetData', { user, coin: convertedCoin });
 
         if (this.activeSubscriptions.has(subscriptionKey)) {
-            await this.unsubscribeFromUserActiveAssetData(user, coin);
+            await this.unsubscribeFromUserActiveAssetData(user, convertedCoin);
         }
 
         this.addSubscriptionCallback(subscriptionKey, callback);
@@ -366,7 +367,7 @@ export class WebSocketSubscriptions {
 
         (callback as any).__messageHandler = messageHandler;
         this.ws.on('message', messageHandler);
-        await this.subscribe({ type: 'activeAssetData', user: user, coin: coin });
+        await this.subscribe({ type: 'activeAssetData', user: user, coin: convertedCoin });
     }
 
     async postRequest(requestType: 'info' | 'action', payload: any): Promise<any> {
@@ -609,7 +610,8 @@ export class WebSocketSubscriptions {
     }
 
     async unsubscribeFromUserActiveAssetData(user: string, coin: string): Promise<void> {
-        const subscriptionKey = this.getSubscriptionKey('activeAssetData', { user, coin });
+        const convertedCoin = await this.symbolConversion.convertSymbol(coin ,"reverse");
+        const subscriptionKey = this.getSubscriptionKey('activeAssetData', { user, coin: convertedCoin });
         const callbacks = this.activeSubscriptions.get(subscriptionKey);
 
         if (callbacks) {
@@ -623,7 +625,7 @@ export class WebSocketSubscriptions {
             this.activeSubscriptions.delete(subscriptionKey);
         }
 
-        await this.unsubscribe({ type: 'activeAssetData', user: user, coin: coin });
+        await this.unsubscribe({ type: 'activeAssetData', user: user, coin: convertedCoin });
     }
 
     async subscribeToActiveAssetCtx(coin: string, callback: (data: WsActiveAssetCtx) => void): Promise<void> {
