@@ -196,12 +196,39 @@ export class WebSocketSubscriptions {
         await this.subscribe({ type: 'candle', coin: convertedCoin, interval: interval });
     }
 
-    async subscribeToL2Book(coin: string, callback: (data: WsBook & { coin: string }) => void): Promise<void> {
+    async subscribeToL2Book(
+        coin: string, 
+        nSigFigs?: number, 
+        mantissa?: number, 
+        callback?: (data: WsBook & { coin: string }) => void
+    ): Promise<void> {
+        // Handle case where callback is provided as one of the first parameters
+        if (typeof nSigFigs === 'function') {
+            callback = nSigFigs;
+            nSigFigs = undefined;
+            mantissa = undefined;
+        } else if (typeof mantissa === 'function') {
+            callback = mantissa;
+            mantissa = undefined;
+        }
+        
+        if (!callback) return;
+        
         const convertedCoin = await this.symbolConversion.convertSymbol(coin, "reverse");
-        const subscriptionKey = this.getSubscriptionKey('l2Book', { coin: convertedCoin });
+        
+        // Create subscription parameters object
+        const params: any = { coin: convertedCoin };
+        if (nSigFigs !== undefined) {
+            params.nSigFigs = nSigFigs;
+        }
+        if (mantissa !== undefined) {
+            params.mantissa = mantissa;
+        }
+        
+        const subscriptionKey = this.getSubscriptionKey('l2Book', params);
 
         if (this.activeSubscriptions.has(subscriptionKey)) {
-            await this.unsubscribeFromL2Book(coin);
+            await this.unsubscribeFromL2Book(coin, nSigFigs, mantissa);
         }
 
         this.addSubscriptionCallback(subscriptionKey, callback);
@@ -215,7 +242,17 @@ export class WebSocketSubscriptions {
 
         (callback as any).__messageHandler = messageHandler;
         this.ws.on('message', messageHandler);
-        await this.subscribe({ type: 'l2Book', coin: convertedCoin });
+        
+        // Build subscription object with optional parameters
+        const subscription: any = { type: 'l2Book', coin: convertedCoin };
+        if (nSigFigs !== undefined) {
+            subscription.nSigFigs = nSigFigs;
+        }
+        if (mantissa !== undefined) {
+            subscription.mantissa = mantissa;
+        }
+        
+        await this.subscribe(subscription);
     }
 
     async subscribeToTrades(coin: string, callback: (data: any) => void): Promise<void> {
@@ -481,9 +518,23 @@ export class WebSocketSubscriptions {
         await this.unsubscribe({ type: 'candle', coin: convertedCoin, interval: interval });
     }
 
-    async unsubscribeFromL2Book(coin: string): Promise<void> {
+    async unsubscribeFromL2Book(
+        coin: string,
+        nSigFigs?: number,
+        mantissa?: number
+    ): Promise<void> {
         const convertedCoin = await this.symbolConversion.convertSymbol(coin, "reverse");
-        const subscriptionKey = this.getSubscriptionKey('l2Book', { coin: convertedCoin });
+        
+        // Create params object for subscription key
+        const params: any = { coin: convertedCoin };
+        if (nSigFigs !== undefined) {
+            params.nSigFigs = nSigFigs;
+        }
+        if (mantissa !== undefined) {
+            params.mantissa = mantissa;
+        }
+        
+        const subscriptionKey = this.getSubscriptionKey('l2Book', params);
         const callbacks = this.activeSubscriptions.get(subscriptionKey);
 
         if (callbacks) {
@@ -497,7 +548,16 @@ export class WebSocketSubscriptions {
             this.activeSubscriptions.delete(subscriptionKey);
         }
 
-        await this.unsubscribe({ type: 'l2Book', coin: convertedCoin });
+        // Build subscription object with optional parameters
+        const subscription: any = { type: 'l2Book', coin: convertedCoin };
+        if (nSigFigs !== undefined) {
+            subscription.nSigFigs = nSigFigs;
+        }
+        if (mantissa !== undefined) {
+            subscription.mantissa = mantissa;
+        }
+        
+        await this.unsubscribe(subscription);
     }
 
     async unsubscribeFromTrades(coin: string): Promise<void> {
