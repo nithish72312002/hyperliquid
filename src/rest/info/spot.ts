@@ -134,7 +134,7 @@ export class SpotInfoAPI {
     /**
      * Returns a list of all coins that have an EVM contract
      * @param rawResponse Whether to return the raw response without symbol conversion
-     * @returns Array of coins with EVM contracts, including name, EVM address, system address, and token ID
+     * @returns Array of coins with EVM contracts, including name, EVM address, system address, token ID, and decimals
      */
     async getEvmTokens(rawResponse: boolean = false): Promise<Array<{
         name: string;
@@ -142,6 +142,7 @@ export class SpotInfoAPI {
         evmAddress: string;
         systemAddress: string;
         tokenId: string;
+        decimals: number;
     }>> {
         // Get the spot metadata
         const meta = await this.getSpotMeta(true);
@@ -175,7 +176,8 @@ export class SpotInfoAPI {
                     index: token.index,
                     evmAddress: token.evmContract.address,
                     systemAddress,
-                    tokenId: token.tokenId || ""
+                    tokenId: token.tokenId || "",
+                    decimals: (token.weiDecimals || 0) + (token.evmContract.evm_extra_wei_decimals || 0)
                 };
             });
 
