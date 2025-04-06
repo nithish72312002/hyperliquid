@@ -242,8 +242,8 @@ export class SpotInfoAPI {
             
             return {
                 ...token,
-                balance: balanceEntry?.formattedBalance || '0',
-                rawBalance: balanceEntry ? balanceEntry.balance.toString() : '0'
+                balance: balanceEntry?.formattedBalance || '0'.toString(), // Ensure this is always a string
+                rawBalance: balanceEntry ? balanceEntry.balance.toString() : '0'.toString()
             };
         });
         
