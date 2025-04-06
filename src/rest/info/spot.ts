@@ -193,16 +193,7 @@ export class SpotInfoAPI {
      * @param isTestnet Whether to use testnet environment for EVM calls
      * @returns Array of coins with EVM contracts including name, EVM address, system address, token ID, decimals, and balance
      */
-    async getEvmTokensWithBalances(walletAddress: string, rawResponse: boolean = false, isTestnet: boolean = false): Promise<Array<{
-        name: string;
-        index: number;
-        evmAddress: string;
-        systemAddress: string;
-        tokenId: string;
-        decimals: number;
-        balance: string;
-        rawBalance: string;
-    }>> {
+    async getEvmTokensWithBalances(walletAddress: string, rawResponse: boolean = false, isTestnet: boolean = false) {
         // Get the EVM tokens first
         const evmTokens = await this.getEvmTokens(true);
         
@@ -242,8 +233,8 @@ export class SpotInfoAPI {
             
             return {
                 ...token,
-                balance: balanceEntry?.formattedBalance || '0'.toString(), // Ensure this is always a string
-                rawBalance: balanceEntry ? balanceEntry.balance.toString() : '0'.toString()
+                balance: balanceEntry?.formattedBalance ?? '0',
+                rawBalance: balanceEntry ? balanceEntry.balance.toString() : '0'
             };
         });
         
