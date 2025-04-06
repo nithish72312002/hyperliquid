@@ -2,6 +2,7 @@ import { SpotMeta, SpotClearinghouseState, SpotMetaAndAssetCtxs } from '../../ty
 import { HttpApi } from '../../utils/helpers';
 import { InfoType } from '../../types/constants';
 import { SymbolConversion } from '../../utils/symbolConversion';
+import { MulticallClient, TokenInfo } from '../../evm/multicall';
 
 export class SpotInfoAPI {
     private httpApi: HttpApi;
@@ -147,9 +148,9 @@ export class SpotInfoAPI {
         // Get the spot metadata
         const meta = await this.getSpotMeta(true);
         
-        // Filter tokens to only include those with EVM contracts
+        // Filter tokens to only include those with EVM contracts or HYPE tokens
         const evmTokens = (meta.tokens as any[])
-            .filter(token => token.evmContract)
+            .filter(token => token.evmContract || token.name === "HYPE")
             .map(token => {
                 // Calculate system address
                 // HYPE is a special case with a fixed system address
@@ -174,14 +175,79 @@ export class SpotInfoAPI {
                 return {
                     name: token.name,
                     index: token.index,
-                    evmAddress: token.evmContract.address,
+                    evmAddress: token.evmContract ? token.evmContract.address : "",
                     systemAddress,
                     tokenId: token.tokenId || "",
-                    decimals: (token.weiDecimals || 0) + (token.evmContract.evm_extra_wei_decimals || 0)
+                    decimals: (token.weiDecimals || 0) + (token.evmContract?.evm_extra_wei_decimals || 0)
                 };
             });
 
         // Apply symbol conversion if needed
         return rawResponse ? evmTokens : await this.symbolConversion.convertResponse(evmTokens, ["name"], "SPOT");
+    }
+
+    /**
+     * Returns a list of all coins that have an EVM contract along with their balances for a specific wallet
+     * @param walletAddress The wallet address to check balances for
+     * @param rawResponse Whether to return the raw response without symbol conversion
+     * @param isTestnet Whether to use testnet environment for EVM calls
+     * @returns Array of coins with EVM contracts including name, EVM address, system address, token ID, decimals, and balance
+     */
+    async getEvmTokensWithBalances(walletAddress: string, rawResponse: boolean = false, isTestnet: boolean = false): Promise<Array<{
+        name: string;
+        index: number;
+        evmAddress: string;
+        systemAddress: string;
+        tokenId: string;
+        decimals: number;
+        balance: string;
+        rawBalance: string;
+    }>> {
+        // Get the EVM tokens first
+        const evmTokens = await this.getEvmTokens(true);
+        
+        // Initialize the multicall client with the appropriate network setting
+        const client = new MulticallClient(isTestnet);
+        
+        // Convert our token data to the format expected by the multicall client
+        const tokenInfos: TokenInfo[] = evmTokens
+            .filter(token => token.evmAddress) // Skip tokens with empty EVM addresses (like HYPE)
+            .map(token => ({
+                address: token.evmAddress,
+                symbol: token.name,
+                decimals: token.decimals
+            }));
+            
+        // Get ERC20 token balances using multicall
+        const balanceResult = await client.getTokenBalances(walletAddress, tokenInfos);
+        
+        // Get native HYPE balance separately
+        const nativeBalance = await client.getNativeBalance(walletAddress);
+        
+        // Merge the balances back into our token list
+        const tokensWithBalances = evmTokens.map(token => {
+            // Special handling for HYPE token
+            if (token.name === "HYPE") {
+                return {
+                    ...token,
+                    balance: nativeBalance.formattedBalance,
+                    rawBalance: nativeBalance.balance.toString()
+                };
+            }
+            
+            // Regular ERC20 token handling
+            const balanceEntry = balanceResult.balances.find(
+                (balance: any) => token.evmAddress && balance.address.toLowerCase() === token.evmAddress.toLowerCase()
+            );
+            
+            return {
+                ...token,
+                balance: balanceEntry?.formattedBalance || '0',
+                rawBalance: balanceEntry ? balanceEntry.balance.toString() : '0'
+            };
+        });
+        
+        // Apply symbol conversion if needed
+        return rawResponse ? tokensWithBalances : await this.symbolConversion.convertResponse(tokensWithBalances, ["name"], "SPOT");
     }
 }
