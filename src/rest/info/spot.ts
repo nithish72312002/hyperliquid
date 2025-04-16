@@ -78,7 +78,7 @@ export class SpotInfoAPI {
         // We need to use type assertion here since the type definition doesn't include evmContract
         meta.tokens.forEach((token: any) => {
             // A token is transferrable if it has an evmContract property that's not null
-            tokenEvmMapping.set(token.index, !!token.evmContract);
+            tokenEvmMapping.set(token.index, !!token.evmContract || token.name === "HYPE");
             
             // Store the tokenId for each token
             if (token.tokenId) {
