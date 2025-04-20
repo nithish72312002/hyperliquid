@@ -60,7 +60,7 @@ function constructPhantomAgent(hash: string, isMainnet: boolean) {
 }
 
 export async function signL1Action(
-    wallet: Wallet | HDNodeWallet,
+    wallet: Wallet | HDNodeWallet | any,
     action: unknown,
     activePool: string | null,
     nonce: number,
@@ -79,7 +79,7 @@ export async function signL1Action(
 }
 
 export async function signUserSignedAction(
-    wallet: Wallet,
+    wallet: Wallet | any,
     action: any,
     payloadTypes: Array<{ name: string; type: string }>,
     primaryType: string,
@@ -102,7 +102,7 @@ export async function signUserSignedAction(
     return signInner(wallet, data);
 }
 
-export async function signUsdTransferAction(wallet: Wallet, action: any, isMainnet: boolean): Promise<Signature> {
+export async function signUsdTransferAction(wallet: Wallet | any, action: any, isMainnet: boolean): Promise<Signature> {
     return signUserSignedAction(
         wallet,
         action,
@@ -117,7 +117,7 @@ export async function signUsdTransferAction(wallet: Wallet, action: any, isMainn
     );
 }
 
-export async function signWithdrawFromBridgeAction(wallet: Wallet, action: any, isMainnet: boolean): Promise<Signature> {
+export async function signWithdrawFromBridgeAction(wallet: Wallet | any, action: any, isMainnet: boolean): Promise<Signature> {
     return signUserSignedAction(
         wallet,
         action,
@@ -132,7 +132,7 @@ export async function signWithdrawFromBridgeAction(wallet: Wallet, action: any, 
     );
 }
 
-export async function signAgent(wallet: Wallet, action: any, isMainnet: boolean): Promise<Signature> {
+export async function signAgent(wallet: Wallet | any, action: any, isMainnet: boolean): Promise<Signature> {
     return signUserSignedAction(
         wallet,
         action,
@@ -147,7 +147,7 @@ export async function signAgent(wallet: Wallet, action: any, isMainnet: boolean)
     );
 }
 
-async function signInner(wallet: Wallet | HDNodeWallet, data: any): Promise<Signature> {
+async function signInner(wallet: Wallet | HDNodeWallet | any, data: any): Promise<Signature> {
     const signature = await wallet.signTypedData(data.domain, data.types, data.message);
     return splitSig(signature);
 }

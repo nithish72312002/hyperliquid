@@ -13,6 +13,7 @@ import { environment } from './utils/environment';
 export interface HyperliquidConfig {
     enableWs?: boolean;
     privateKey?: string;
+    account?: any;
     testnet?: boolean;
     walletAddress?: string;
     vaultAddress?: string;
@@ -33,6 +34,7 @@ export class Hyperliquid {
     private _initialized: boolean = false;
     private _initializing: Promise<void> | null = null;
     private _privateKey?: string;
+    private _account?: any;
     private _walletAddress?: string;
     private vaultAddress?: string | null = null;
     private enableWs: boolean;
@@ -40,7 +42,7 @@ export class Hyperliquid {
     private testnet: boolean;
 
     constructor(params: HyperliquidConfig = {}) {
-        const { enableWs = true, privateKey, testnet = false, walletAddress, vaultAddress, maxReconnectAttempts } = params;
+        const { enableWs = true, privateKey, account, testnet = false, walletAddress, vaultAddress, maxReconnectAttempts } = params;
         
         // Browser-specific security warnings
         if (environment.isBrowser) {
@@ -59,6 +61,7 @@ export class Hyperliquid {
         this.symbolConversion = new SymbolConversion(this.baseUrl, this.rateLimiter);
         this.walletAddress = walletAddress || null;
         this.vaultAddress = vaultAddress || null;
+        this._account = account; // Store the account
         
         // Initialize REST API clients
         this.info = new InfoAPI(this.baseUrl, this.rateLimiter, this.symbolConversion, this);
@@ -90,6 +93,9 @@ export class Hyperliquid {
         // Set up authentication if private key is provided
         if (privateKey) {
             this.initializeWithPrivateKey(privateKey, testnet);
+        } else if (account) {
+            // Initialize with thirdweb account
+            this.initializeWithAccount(account, testnet);
         } else if (walletAddress) {
             this._walletAddress = walletAddress;
             this.walletAddress = walletAddress;
@@ -200,6 +206,43 @@ export class Hyperliquid {
             this.isValidPrivateKey = true;
         } catch (error) {
             console.warn("Invalid private key provided. Some functionalities will be limited.");
+            this.isValidPrivateKey = false;
+        }
+    }
+
+    private initializeWithAccount(account: any, testnet: boolean): void {
+        try {
+            // Ensure account has the necessary methods
+            if (!account || typeof account.signTypedData !== 'function') {
+                throw new Error('Invalid account. Account must have a signTypedData method.');
+            }
+            
+            // Create exchange API with account
+            this.exchange = new ExchangeAPI(
+                testnet, 
+                null, // No private key
+                this.info, 
+                this.rateLimiter, 
+                this.symbolConversion, 
+                this.walletAddress,
+                this,
+                this.vaultAddress,
+                account // Pass the account to ExchangeAPI
+            );
+            
+            // Create custom operations with account
+            this.custom = new CustomOperations(
+                this.exchange, 
+                this.info, 
+                undefined, // No private key
+                this.symbolConversion, 
+                this.walletAddress,
+                account // Pass the account
+            );
+            
+            this.isValidPrivateKey = true; // Account is valid for authentication
+        } catch (error) {
+            console.warn("Invalid account provided. Some functionalities will be limited.");
             this.isValidPrivateKey = false;
         }
     }

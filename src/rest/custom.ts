@@ -14,11 +14,12 @@ export class CustomOperations {
     private exchange: ExchangeAPI;
     private infoApi: InfoAPI;
     private wallet?: ethers.Wallet;
+    private account?: any;
     private symbolConversion: SymbolConversion;
     private walletAddress: string | null;
     private parent?: Hyperliquid;
 
-    constructor(exchangeOrParent: ExchangeAPI | Hyperliquid, infoApiOrPrivateKey?: InfoAPI | string, privateKeyOrSymbolConversion?: string | SymbolConversion, symbolConversionOrWalletAddress?: SymbolConversion | string | null, walletAddress?: string | null) {
+    constructor(exchangeOrParent: ExchangeAPI | Hyperliquid, infoApiOrPrivateKey?: InfoAPI | string, privateKeyOrSymbolConversion?: string | SymbolConversion, symbolConversionOrWalletAddress?: SymbolConversion | string | null, walletAddress?: string | null, account?: any) {
         // Check if first argument is Hyperliquid instance
         if (exchangeOrParent instanceof Hyperliquid) {
             this.parent = exchangeOrParent;
@@ -26,6 +27,7 @@ export class CustomOperations {
             this.infoApi = exchangeOrParent.info;
             this.symbolConversion = exchangeOrParent.symbolConversion;
             this.walletAddress = exchangeOrParent.isAuthenticated() ? exchangeOrParent.isAuthenticated().toString() : null;
+            this.account = account;
         } else {
             // Original constructor
             this.exchange = exchangeOrParent;
@@ -35,6 +37,7 @@ export class CustomOperations {
             }
             this.symbolConversion = symbolConversionOrWalletAddress as SymbolConversion;
             this.walletAddress = walletAddress || null;
+            this.account = account;
         }
     }
 

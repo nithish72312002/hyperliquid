@@ -37,7 +37,8 @@ import { Hyperliquid } from '../index';
 // const IS_MAINNET = true; // Make sure this matches the IS_MAINNET in signing.ts
 
 export class ExchangeAPI {
-  private wallet: ethers.Wallet;
+  private wallet: ethers.Wallet | null = null;
+  private account: any = null;
   private httpApi: HttpApi;
   private symbolConversion: SymbolConversion;
   private IS_MAINNET = true;
@@ -51,18 +52,27 @@ export class ExchangeAPI {
   
   constructor(
     testnet: boolean,
-    privateKey: string,
+    privateKey: string | null,
     private info: InfoAPI,
     rateLimiter: RateLimiter,
     symbolConversion: SymbolConversion,
     walletAddress: string | null = null,
     parent: Hyperliquid,
-    vaultAddress: string | null = null
+    vaultAddress: string | null = null,
+    account: any = null
   ) {
     const baseURL = testnet ? CONSTANTS.BASE_URLS.TESTNET : CONSTANTS.BASE_URLS.PRODUCTION;
     this.IS_MAINNET = !testnet;
     this.httpApi = new HttpApi(baseURL, ENDPOINTS.EXCHANGE, rateLimiter);
-    this.wallet = new ethers.Wallet(privateKey);
+    
+    // Initialize either wallet or account
+    if (privateKey) {
+      this.wallet = new ethers.Wallet(privateKey);
+    } else {
+      this.wallet = null;
+    }
+    
+    this.account = account;
     this.symbolConversion = symbolConversion;
     this.walletAddress = walletAddress;
     this.parent = parent;
@@ -149,7 +159,7 @@ export class ExchangeAPI {
       const actions = orderWireToAction(orderWires, grouping, builder);
 
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, actions, vaultAddress, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(this.wallet || this.account, actions, vaultAddress, nonce, this.IS_MAINNET);
 
       const payload = { action: actions, nonce, signature, vaultAddress };
       return this.httpApi.makeRequest(payload, 1);
