@@ -1,5 +1,5 @@
 import { encode } from '@msgpack/msgpack';
-import { ethers, getBytes, HDNodeWallet, keccak256, type Wallet } from 'ethers';
+import { getBytes, keccak256, Signature as EthersSignature } from 'ethers';
 
 import type { Builder, Order, OrderRequest, OrderType, OrderWire, Signature, CancelOrderRequest, Grouping } from '../types';
 
@@ -60,12 +60,17 @@ function constructPhantomAgent(hash: string, isMainnet: boolean) {
 }
 
 export async function signL1Action(
-    wallet: Wallet | HDNodeWallet | any,
+    account: any,
     action: unknown,
     activePool: string | null,
     nonce: number,
     isMainnet: boolean,
 ): Promise<Signature> {
+    // Validate account
+    if (!account || typeof account.signTypedData !== 'function') {
+        throw new Error('Invalid account. Account must have a signTypedData method.');
+    }
+    
     // actionHash already normalizes the action
     const hash = actionHash(action, activePool, nonce);
     const phantomAgent = constructPhantomAgent(hash, isMainnet);
@@ -75,16 +80,21 @@ export async function signL1Action(
         primaryType: 'Agent',
         message: phantomAgent,
     };
-    return signInner(wallet, data);
+    return signInner(account, data);
 }
 
 export async function signUserSignedAction(
-    wallet: Wallet | any,
+    account: any,
     action: any,
     payloadTypes: Array<{ name: string; type: string }>,
     primaryType: string,
     isMainnet: boolean
 ): Promise<Signature> {
+    // Validate account
+    if (!account || typeof account.signTypedData !== 'function') {
+        throw new Error('Invalid account. Account must have a signTypedData method.');
+    }
+    
     const data = {
         domain: {
             name: 'HyperliquidSignTransaction',
@@ -99,12 +109,12 @@ export async function signUserSignedAction(
         message: action
     };
 
-    return signInner(wallet, data);
+    return signInner(account, data);
 }
 
-export async function signUsdTransferAction(wallet: Wallet | any, action: any, isMainnet: boolean): Promise<Signature> {
+export async function signUsdTransferAction(account: any, action: any, isMainnet: boolean): Promise<Signature> {
     return signUserSignedAction(
-        wallet,
+        account,
         action,
         [
             { name: 'hyperliquidChain', type: 'string' },
@@ -117,9 +127,9 @@ export async function signUsdTransferAction(wallet: Wallet | any, action: any, i
     );
 }
 
-export async function signWithdrawFromBridgeAction(wallet: Wallet | any, action: any, isMainnet: boolean): Promise<Signature> {
+export async function signWithdrawFromBridgeAction(account: any, action: any, isMainnet: boolean): Promise<Signature> {
     return signUserSignedAction(
-        wallet,
+        account,
         action,
         [
             { name: 'hyperliquidChain', type: 'string' },
@@ -132,9 +142,9 @@ export async function signWithdrawFromBridgeAction(wallet: Wallet | any, action:
     );
 }
 
-export async function signAgent(wallet: Wallet | any, action: any, isMainnet: boolean): Promise<Signature> {
+export async function signAgent(account: any, action: any, isMainnet: boolean): Promise<Signature> {
     return signUserSignedAction(
-        wallet,
+        account,
         action,
         [
             { name: 'hyperliquidChain', type: 'string' },
@@ -147,13 +157,22 @@ export async function signAgent(wallet: Wallet | any, action: any, isMainnet: bo
     );
 }
 
-async function signInner(wallet: Wallet | HDNodeWallet | any, data: any): Promise<Signature> {
-    const signature = await wallet.signTypedData(data.domain, data.types, data.message);
+export async function signInner(account: any, data: any): Promise<Signature> {
+    if (!account || typeof account.signTypedData !== 'function') {
+        throw new Error('Invalid account. Account must have a signTypedData method.');
+    }
+    
+    const signature = await account.signTypedData(
+        data.domain,
+        data.types,
+        data.message
+    );
+    
     return splitSig(signature);
 }
 
-function splitSig(sig: string): Signature {
-    const { r, s, v } = ethers.Signature.from(sig);
+export function splitSig(sig: string): Signature {
+    const { r, s, v } = EthersSignature.from(sig);
     return { r, s, v };
 }
 

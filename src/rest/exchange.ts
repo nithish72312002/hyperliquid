@@ -1,4 +1,3 @@
-import { ethers } from 'ethers';
 import { RateLimiter } from '../utils/rateLimiter';
 import { HttpApi } from '../utils/helpers';
 import { InfoAPI } from './info';
@@ -33,11 +32,9 @@ import { ExchangeType, ENDPOINTS } from '../types/constants';
 import { SymbolConversion } from '../utils/symbolConversion';
 import { Hyperliquid } from '../index';
 
-
 // const IS_MAINNET = true; // Make sure this matches the IS_MAINNET in signing.ts
 
 export class ExchangeAPI {
-  private wallet: ethers.Wallet | null = null;
   private account: any = null;
   private httpApi: HttpApi;
   private symbolConversion: SymbolConversion;
@@ -52,27 +49,21 @@ export class ExchangeAPI {
   
   constructor(
     testnet: boolean,
-    privateKey: string | null,
     private info: InfoAPI,
     rateLimiter: RateLimiter,
     symbolConversion: SymbolConversion,
+    account: any = null,
     walletAddress: string | null = null,
     parent: Hyperliquid,
-    vaultAddress: string | null = null,
-    account: any = null
+    vaultAddress: string | null = null
   ) {
     const baseURL = testnet ? CONSTANTS.BASE_URLS.TESTNET : CONSTANTS.BASE_URLS.PRODUCTION;
     this.IS_MAINNET = !testnet;
     this.httpApi = new HttpApi(baseURL, ENDPOINTS.EXCHANGE, rateLimiter);
     
-    // Initialize either wallet or account
-    if (privateKey) {
-      this.wallet = new ethers.Wallet(privateKey);
-    } else {
-      this.wallet = null;
-    }
-    
+    // Set account
     this.account = account;
+    
     this.symbolConversion = symbolConversion;
     this.walletAddress = walletAddress;
     this.parent = parent;
@@ -97,6 +88,11 @@ export class ExchangeAPI {
 
   async placeOrder(orderRequest: OrderRequest): Promise<any> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     const vaultAddress = this.getVaultAddress();
     const grouping = (orderRequest as any).grouping || "na";
     const builder = (orderRequest as any).builder;
@@ -159,7 +155,7 @@ export class ExchangeAPI {
       const actions = orderWireToAction(orderWires, grouping, builder);
 
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet || this.account, actions, vaultAddress, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(this.account, actions, vaultAddress, nonce, this.IS_MAINNET);
 
       const payload = { action: actions, nonce, signature, vaultAddress };
       return this.httpApi.makeRequest(payload, 1);
@@ -170,6 +166,11 @@ export class ExchangeAPI {
 
   async cancelOrder(cancelRequests: CancelOrderRequest | CancelOrderRequest[]): Promise<CancelOrderResponse> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     try {
       const cancels = Array.isArray(cancelRequests) ? cancelRequests : [cancelRequests];
       const vaultAddress = this.getVaultAddress();
@@ -185,7 +186,7 @@ export class ExchangeAPI {
       };
   
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, vaultAddress, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(this.account, action, vaultAddress, nonce, this.IS_MAINNET);
   
       const payload = { action, nonce, signature, vaultAddress };
       return this.httpApi.makeRequest(payload, 1);
@@ -197,6 +198,11 @@ export class ExchangeAPI {
   //Cancel using a CLOID
   async cancelOrderByCloid(symbol: string, cloid: string): Promise<any> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     try {
       const assetIndex = await this.getAssetIndex(symbol);
       const vaultAddress = this.getVaultAddress();
@@ -205,7 +211,7 @@ export class ExchangeAPI {
         cancels: [{ asset: assetIndex, cloid }]
       };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, vaultAddress, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(this.account, action, vaultAddress, nonce, this.IS_MAINNET);
 
       const payload = { action, nonce, signature, vaultAddress };
       return this.httpApi.makeRequest(payload, 1);
@@ -217,6 +223,11 @@ export class ExchangeAPI {
   //Modify a single order
   async modifyOrder(oid: number, orderRequest: Order): Promise<any> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     try {
       const assetIndex = await this.getAssetIndex(orderRequest.coin);
       const vaultAddress = this.getVaultAddress();
@@ -241,7 +252,7 @@ export class ExchangeAPI {
         order: orderWire
       };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, vaultAddress, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(this.account, action, vaultAddress, nonce, this.IS_MAINNET);
 
       const payload = { action, nonce, signature, vaultAddress };
       return this.httpApi.makeRequest(payload, 1);
@@ -253,6 +264,11 @@ export class ExchangeAPI {
   //Modify multiple orders at once
   async batchModifyOrders(modifies: Array<{ oid: number, order: Order }>): Promise<any> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     try {
       const vaultAddress = this.getVaultAddress();
       const assetIndices = await Promise.all(
@@ -285,7 +301,7 @@ export class ExchangeAPI {
       };
 
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, vaultAddress, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(this.account, action, vaultAddress, nonce, this.IS_MAINNET);
 
       const payload = { action, nonce, signature, vaultAddress };
       return this.httpApi.makeRequest(payload, 1);
@@ -297,6 +313,11 @@ export class ExchangeAPI {
   //Update leverage. Set leverageMode to "cross" if you want cross leverage, otherwise it'll set it to "isolated by default"
   async updateLeverage(symbol: string, leverageMode: string, leverage: number): Promise<any> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     try {
       const assetIndex = await this.getAssetIndex(symbol);
       const vaultAddress = this.getVaultAddress();
@@ -307,7 +328,7 @@ export class ExchangeAPI {
         leverage: leverage
       };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, vaultAddress, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(this.account, action, vaultAddress, nonce, this.IS_MAINNET);
 
       const payload = { action, nonce, signature, vaultAddress };
       return this.httpApi.makeRequest(payload, 1);
@@ -319,6 +340,11 @@ export class ExchangeAPI {
   //Update how much margin there is on a perps position
   async updateIsolatedMargin(symbol: string, isBuy: boolean, ntli: number): Promise<any> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     try {
       const assetIndex = await this.getAssetIndex(symbol);
       const vaultAddress = this.getVaultAddress();
@@ -329,7 +355,7 @@ export class ExchangeAPI {
         ntli
       };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, vaultAddress, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(this.account, action, vaultAddress, nonce, this.IS_MAINNET);
 
       const payload = { action, nonce, signature, vaultAddress };
       return this.httpApi.makeRequest(payload, 1);
@@ -341,6 +367,11 @@ export class ExchangeAPI {
   //Takes from the perps wallet and sends to another wallet without the $1 fee (doesn't touch bridge, so no fees)
   async usdTransfer(destination: string, amount: number): Promise<any> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     try {
         const action = {
             type: ExchangeType.USD_SEND,
@@ -350,7 +381,7 @@ export class ExchangeAPI {
             amount: amount.toString(),
             time: Date.now()
         };
-        const signature = await signUsdTransferAction(this.wallet, action, this.IS_MAINNET);
+        const signature = await signUsdTransferAction(this.account, action, this.IS_MAINNET);
 
         const payload = { action, nonce: action.time, signature };
         return this.httpApi.makeRequest(payload, 1);  // Remove the third parameter
@@ -361,6 +392,11 @@ export class ExchangeAPI {
   //Transfer SPOT assets i.e PURR to another wallet (doesn't touch bridge, so no fees)
   async spotTransfer(destination: string, token: string, amount: string): Promise<any> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     try {
       const action = {
         type: ExchangeType.SPOT_SEND,
@@ -372,7 +408,7 @@ export class ExchangeAPI {
         time: Date.now()
       };
       const signature = await signUserSignedAction(
-        this.wallet,
+        this.account,
         action,
         [
           { name: 'hyperliquidChain', type: 'string' },
@@ -394,6 +430,11 @@ export class ExchangeAPI {
   //Withdraw USDC, this txn goes across the bridge and costs $1 in fees as of writing this
   async initiateWithdrawal(destination: string, amount: number): Promise<any> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     try {
       const action = {
         type: ExchangeType.WITHDRAW,
@@ -403,7 +444,7 @@ export class ExchangeAPI {
         amount: amount.toString(),
         time: Date.now()
       };
-      const signature = await signWithdrawFromBridgeAction(this.wallet, action, this.IS_MAINNET);
+      const signature = await signWithdrawFromBridgeAction(this.account, action, this.IS_MAINNET);
 
       const payload = { action, nonce: action.time, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -415,6 +456,11 @@ export class ExchangeAPI {
   //Transfer between spot and perpetual wallets (intra-account transfer)
   async transferBetweenSpotAndPerp(usdc: number, toPerp: boolean): Promise<any> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     try {
         const nonce = this.generateUniqueNonce();
         const action = {
@@ -427,7 +473,7 @@ export class ExchangeAPI {
         };
 
         const signature = await signUserSignedAction(
-            this.wallet,
+            this.account,
             action,
             [
                 { name: 'hyperliquidChain', type: 'string' },
@@ -449,10 +495,15 @@ export class ExchangeAPI {
   //Schedule a cancel for a given time (in ms) //Note: Only available once you've traded $1 000 000 in volume
   async scheduleCancel(time: number | null): Promise<any> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     try {
       const action = { type: ExchangeType.SCHEDULE_CANCEL, time };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(this.account, action, null, nonce, this.IS_MAINNET);
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -464,6 +515,11 @@ export class ExchangeAPI {
   //Transfer between vault and perpetual wallets (intra-account transfer)
   async vaultTransfer(vaultAddress: string, isDeposit: boolean, usd: number): Promise<any> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     try {
       const action = {
         type: ExchangeType.VAULT_TRANSFER,
@@ -472,7 +528,7 @@ export class ExchangeAPI {
         usd
       };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(this.account, action, null, nonce, this.IS_MAINNET);
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -483,13 +539,18 @@ export class ExchangeAPI {
 
   async setReferrer(code: string = CONSTANTS.SDK_CODE): Promise<any> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     try {
       const action = {
         type: ExchangeType.SET_REFERRER,
         code
       };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(this.account, action, null, nonce, this.IS_MAINNET);
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -500,10 +561,15 @@ export class ExchangeAPI {
 
   async modifyUserEvm(usingBigBlocks: boolean): Promise<any> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     try {
       const action = { type: ExchangeType.EVM_USER_MODIFY, usingBigBlocks };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(this.account, action, null, nonce, this.IS_MAINNET);
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -514,6 +580,11 @@ export class ExchangeAPI {
 
   async placeTwapOrder(orderRequest: TwapOrder): Promise<TwapOrderResponse> {
         await this.parent.ensureInitialized();
+        
+        if (!this.account) {
+          throw new Error('Account not provided. Authentication required for this operation.');
+        }
+        
         try {
             const assetIndex = await this.getAssetIndex(orderRequest.coin);
             const vaultAddress = this.getVaultAddress();
@@ -534,7 +605,7 @@ export class ExchangeAPI {
 
             const nonce = this.generateUniqueNonce();
             const signature = await signL1Action(
-                this.wallet, 
+                this.account, 
                 action, 
                 vaultAddress, 
                 nonce, 
@@ -550,6 +621,11 @@ export class ExchangeAPI {
 
     async cancelTwapOrder(cancelRequest: TwapCancelRequest): Promise<TwapCancelResponse> {
         await this.parent.ensureInitialized();
+        
+        if (!this.account) {
+          throw new Error('Account not provided. Authentication required for this operation.');
+        }
+        
         try {
             const assetIndex = await this.getAssetIndex(cancelRequest.coin);
             const vaultAddress = this.getVaultAddress();
@@ -562,7 +638,7 @@ export class ExchangeAPI {
 
             const nonce = this.generateUniqueNonce();
             const signature = await signL1Action(
-                this.wallet, 
+                this.account, 
                 action, 
                 vaultAddress, 
                 nonce, 
@@ -578,6 +654,11 @@ export class ExchangeAPI {
 
     async approveAgent(request: ApproveAgentRequest): Promise<any> {
       await this.parent.ensureInitialized();
+      
+      if (!this.account) {
+        throw new Error('Account not provided. Authentication required for this operation.');
+      }
+      
       try {
           const nonce = this.generateUniqueNonce();
           const action = {
@@ -590,7 +671,7 @@ export class ExchangeAPI {
           };
   
           const signature = await signAgent(
-              this.wallet,
+              this.account,
               action,
               this.IS_MAINNET
           );
@@ -604,6 +685,11 @@ export class ExchangeAPI {
   
   async approveBuilderFee(request: ApproveBuilderFeeRequest): Promise<any> {
     await this.parent.ensureInitialized();
+    
+    if (!this.account) {
+      throw new Error('Account not provided. Authentication required for this operation.');
+    }
+    
     try {
         const nonce = this.generateUniqueNonce();
         const action = {
@@ -617,7 +703,7 @@ export class ExchangeAPI {
 
         // Fix: Remove user field from action - it should only be in the EIP712 types
         const signature = await signUserSignedAction(
-            this.wallet,
+            this.account,
             action,
             [
                 { name: 'hyperliquidChain', type: 'string' },

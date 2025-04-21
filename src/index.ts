@@ -5,14 +5,12 @@ import { WebSocketSubscriptions } from './websocket/subscriptions';
 import { RateLimiter } from './utils/rateLimiter';
 import * as CONSTANTS from './types/constants';
 import { CustomOperations } from './rest/custom';
-import { ethers } from 'ethers';
 import { SymbolConversion } from './utils/symbolConversion';
 import { AuthenticationError } from './utils/errors';
 import { environment } from './utils/environment';
 
 export interface HyperliquidConfig {
     enableWs?: boolean;
-    privateKey?: string;
     account?: any;
     testnet?: boolean;
     walletAddress?: string;
@@ -29,11 +27,10 @@ export class Hyperliquid {
     public symbolConversion: SymbolConversion;
 
     private rateLimiter: RateLimiter;
-    private isValidPrivateKey: boolean = false;
+    private isValidAccount: boolean = false;
     private walletAddress: string | null = null;
     private _initialized: boolean = false;
     private _initializing: Promise<void> | null = null;
-    private _privateKey?: string;
     private _account?: any;
     private _walletAddress?: string;
     private vaultAddress?: string | null = null;
@@ -42,13 +39,10 @@ export class Hyperliquid {
     private testnet: boolean;
 
     constructor(params: HyperliquidConfig = {}) {
-        const { enableWs = true, privateKey, account, testnet = false, walletAddress, vaultAddress, maxReconnectAttempts } = params;
+        const { enableWs = true, account, testnet = false, walletAddress, vaultAddress, maxReconnectAttempts } = params;
         
         // Browser-specific security warnings
         if (environment.isBrowser) {
-            if (privateKey) {
-                console.warn('Warning: Storing private keys in browser environments is not recommended. Consider using a Web3 wallet provider instead.');
-            }
             if (!window.isSecureContext) {
                 console.warn('Warning: Running in an insecure context. Some features may be limited.');
             }
@@ -90,124 +84,69 @@ export class Hyperliquid {
             this.subscriptions = {} as WebSocketSubscriptions;
         }
         
-        // Set up authentication if private key is provided
-        if (privateKey) {
-            this.initializeWithPrivateKey(privateKey, testnet);
-        } else if (account) {
-            // Initialize with thirdweb account
+        // Set up authentication if account is provided
+        if (account) {
             this.initializeWithAccount(account, testnet);
-        } else if (walletAddress) {
-            this._walletAddress = walletAddress;
-            this.walletAddress = walletAddress;
         }
     }
 
-    public async connect(): Promise<void> {
-        if (!this._initialized) {
-            if (!this._initializing) {
-                this._initializing = this.initialize();
+    async connect(): Promise<void> {
+        await this.ensureInitialized();
+        if (this.enableWs && this.ws.connect) {
+            try {
+                await this.ws.connect();
+            } catch (error) {
+                console.error('Failed to connect WebSocket:', error);
             }
-            await this._initializing;
         }
     }
 
-    private async initialize(): Promise<void> {
-        if (this._initialized) return;
+    async initialize(): Promise<void> {
+        if (this._initialized) {
+            return;
+        }
         
-        try {
-            // Initialize symbol conversion first
-            await this.symbolConversion.initialize();
-            
-            // Connect WebSocket if enabled
-            if (this.enableWs) {
-                try {
-                    await this.ws.connect();
-                } catch (wsError: unknown) {
-                    const errorMessage = wsError instanceof Error ? wsError.message : String(wsError);
-                    console.warn('Failed to establish WebSocket connection:', errorMessage);
-                    if (errorMessage.includes('Please install the ws package')) {
-                        console.warn('To enable WebSocket support, please run: npm install ws');
-                        this.enableWs = false;
-                    }
-                    // Don't throw here - we want to continue initialization even if WebSocket fails
+        if (this._initializing) {
+            return this._initializing;
+        }
+        
+        this._initializing = (async () => {
+            try {
+                await this.symbolConversion.initialize();
+                
+                if (this._account) {
+                    this.initializeWithAccount(this._account, this.testnet);
                 }
+                
+                if (this.enableWs) {
+                    await this.connect();
+                }
+                
+                this._initialized = true;
+            } catch (error) {
+                console.error('Failed to initialize client:', error);
+                throw error;
+            } finally {
+                this._initializing = null;
             }
-            
-            this._initialized = true;
-            this._initializing = null;
-        } catch (error) {
-            this._initializing = null;
-            throw error;
-        }
+        })();
+        
+        return this._initializing;
     }
 
-    public async ensureInitialized(): Promise<void> {
-        await this.connect();
-    }
-
-    private initializePrivateKey(privateKey: string, testnet: boolean): void {
-        try {
-            const formattedPrivateKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
-            new ethers.Wallet(formattedPrivateKey); // Validate the private key
-            
-            this.exchange = new ExchangeAPI(
-                testnet, 
-                formattedPrivateKey, 
-                this.info, 
-                this.rateLimiter, 
-                this.symbolConversion, 
-                this.walletAddress,
-                this,
-                this.vaultAddress
-            );
-            
-            this.custom = new CustomOperations(
-                this.exchange, 
-                this.info, 
-                formattedPrivateKey, 
-                this.symbolConversion, 
-                this.walletAddress
-            );
-            
-            this.isValidPrivateKey = true;
-        } catch (error) {
-            console.warn("Invalid private key provided. Some functionalities will be limited.");
-            this.isValidPrivateKey = false;
-        }
+    async ensureInitialized(): Promise<void> {
+        if (!this._initialized) await this.initialize();
     }
 
     private createAuthenticatedProxy<T extends object>(Class: new (...args: any[]) => T): T {
         return new Proxy({} as T, {
             get: (target, prop) => {
-                if (!this.isValidPrivateKey) {
-                    throw new AuthenticationError('Invalid or missing private key. This method requires authentication.');
+                if (!this.isValidAccount) {
+                    throw new AuthenticationError('Invalid or missing account. This method requires authentication.');
                 }
                 return target[prop as keyof T];
             }
         });
-    }
-
-    private initializeWithPrivateKey(privateKey: string, testnet: boolean = false): void {
-        try {
-            const formattedPrivateKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}` as `0x${string}`;
-            new ethers.Wallet(formattedPrivateKey); // Validate the private key
-            
-            this.exchange = new ExchangeAPI(
-                testnet, 
-                formattedPrivateKey, 
-                this.info, 
-                this.rateLimiter, 
-                this.symbolConversion, 
-                this.walletAddress,
-                this,
-                this.vaultAddress
-            );
-            this.custom = new CustomOperations(this.exchange, this.info, formattedPrivateKey, this.symbolConversion, this.walletAddress);
-            this.isValidPrivateKey = true;
-        } catch (error) {
-            console.warn("Invalid private key provided. Some functionalities will be limited.");
-            this.isValidPrivateKey = false;
-        }
     }
 
     private initializeWithAccount(account: any, testnet: boolean): void {
@@ -220,37 +159,35 @@ export class Hyperliquid {
             // Create exchange API with account
             this.exchange = new ExchangeAPI(
                 testnet, 
-                null, // No private key
                 this.info, 
                 this.rateLimiter, 
                 this.symbolConversion, 
+                account,
                 this.walletAddress,
                 this,
-                this.vaultAddress,
-                account // Pass the account to ExchangeAPI
+                this.vaultAddress
             );
             
             // Create custom operations with account
             this.custom = new CustomOperations(
                 this.exchange, 
                 this.info, 
-                undefined, // No private key
                 this.symbolConversion, 
                 this.walletAddress,
-                account // Pass the account
+                account 
             );
             
-            this.isValidPrivateKey = true; // Account is valid for authentication
+            this.isValidAccount = true; // Account is valid for authentication
         } catch (error) {
             console.warn("Invalid account provided. Some functionalities will be limited.");
-            this.isValidPrivateKey = false;
+            this.isValidAccount = false;
         }
     }
 
     // Modify existing methods to check initialization
     public isAuthenticated(): boolean {
         this.ensureInitialized();
-        return this.isValidPrivateKey;
+        return this.isValidAccount;
     }
 
     public isWebSocketConnected(): boolean {
