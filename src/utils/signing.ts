@@ -162,11 +162,21 @@ export async function signInner(account: any, data: any): Promise<Signature> {
         throw new Error('Invalid account. Account must have a signTypedData method.');
     }
     
-    const signature = await account.signTypedData(
-        data.domain,
-        data.types,
-        data.message
-    );
+    // Convert to object parameter structure expected by thirdweb
+    const signature = await account.signTypedData({
+        domain: data.domain,
+        message: data.message,
+        primaryType: data.primaryType,
+        types: {
+            EIP712Domain: [
+                { name: 'name', type: 'string' },
+                { name: 'version', type: 'string' },
+                { name: 'chainId', type: 'uint256' },
+                { name: 'verifyingContract', type: 'address' }
+            ],
+            ...data.types
+        }
+    });
     
     return splitSig(signature);
 }
