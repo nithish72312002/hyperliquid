@@ -148,10 +148,6 @@ export async function signAgent(wallet: Wallet | any, action: any, isMainnet: bo
 }
 
 async function signInner(wallet: Wallet | HDNodeWallet | any, data: any): Promise<Signature> {
-<<<<<<< Updated upstream
-    const signature = await wallet.signTypedData(data.domain, data.types, data.message);
-    return splitSig(signature);
-=======
     // Check if the input is a thirdweb-style account with signTypedData as an object method
     if (wallet && typeof wallet.signTypedData === 'function' && 
         wallet.signTypedData.length === 1) { // Detects object-style signTypedData
@@ -187,7 +183,6 @@ async function signInner(wallet: Wallet | HDNodeWallet | any, data: any): Promis
             throw error;
         }
     }
->>>>>>> Stashed changes
 }
 
 function splitSig(sig: string): Signature {
