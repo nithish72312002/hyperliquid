@@ -148,8 +148,46 @@ export async function signAgent(wallet: Wallet | any, action: any, isMainnet: bo
 }
 
 async function signInner(wallet: Wallet | HDNodeWallet | any, data: any): Promise<Signature> {
+<<<<<<< Updated upstream
     const signature = await wallet.signTypedData(data.domain, data.types, data.message);
     return splitSig(signature);
+=======
+    // Check if the input is a thirdweb-style account with signTypedData as an object method
+    if (wallet && typeof wallet.signTypedData === 'function' && 
+        wallet.signTypedData.length === 1) { // Detects object-style signTypedData
+        try {
+            // Use the thirdweb-style object parameter structure
+            const signature = await wallet.signTypedData({
+                domain: data.domain,
+                message: data.message,
+                primaryType: data.primaryType,
+                types: {
+                    EIP712Domain: [
+                        { name: 'name', type: 'string' },
+                        { name: 'version', type: 'string' },
+                        { name: 'chainId', type: 'uint256' },
+                        { name: 'verifyingContract', type: 'address' }
+                    ],
+                    ...data.types
+                }
+            });
+            
+            return splitSig(signature);
+        } catch (error) {
+            console.error("Error with thirdweb-style signing:", error);
+            throw error;
+        }
+    } else {
+        // Use standard ethers wallet approach with positional parameters
+        try {
+            const signature = await wallet.signTypedData(data.domain, data.types, data.message);
+            return splitSig(signature);
+        } catch (error) {
+            console.error("Error with ethers wallet signing:", error);
+            throw error;
+        }
+    }
+>>>>>>> Stashed changes
 }
 
 function splitSig(sig: string): Signature {
