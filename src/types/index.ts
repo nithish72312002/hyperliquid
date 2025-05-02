@@ -1,4 +1,4 @@
-export type Tif = 'Alo' | 'Ioc' | 'Gtc';
+export type Tif = 'Alo' | 'Ioc' | 'Gtc' | 'FrontendMarket' | string;
 export type TriggerType = 'tp' | 'sl';
 export type LimitOrder = { tif: Tif };
 export type TriggerOrder = { triggerPx: string | number; isMarket: boolean; tpsl: TriggerType };
