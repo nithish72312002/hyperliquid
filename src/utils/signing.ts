@@ -148,9 +148,19 @@ export async function signAgent(wallet: Wallet | any, action: any, isMainnet: bo
 }
 
 async function signInner(wallet: Wallet | HDNodeWallet | any, data: any): Promise<Signature> {
-    // Check if the input is a thirdweb-style account with signTypedData as an object method
-    if (wallet && typeof wallet.signTypedData === 'function' && 
-        wallet.signTypedData.length === 1) { // Detects object-style signTypedData
+    // First check if this is an ethers.js Wallet instance
+    if (wallet && wallet instanceof ethers.Wallet) {
+        try {
+            // Use standard ethers wallet approach with positional parameters
+            const signature = await wallet.signTypedData(data.domain, data.types, data.message);
+            return splitSig(signature);
+        } catch (error) {
+            console.error("Error with ethers wallet signing:", error);
+            throw error;
+        }
+    } 
+    // Otherwise, assume it's a ThirdWeb-style account (or other Web3 provider)
+    else if (wallet && typeof wallet.signTypedData === 'function') {
         try {
             // Use the thirdweb-style object parameter structure
             const signature = await wallet.signTypedData({
@@ -170,18 +180,11 @@ async function signInner(wallet: Wallet | HDNodeWallet | any, data: any): Promis
             
             return splitSig(signature);
         } catch (error) {
-            console.error("Error with thirdweb-style signing:", error);
+            console.error("Error with ThirdWeb-style signing:", error);
             throw error;
         }
     } else {
-        // Use standard ethers wallet approach with positional parameters
-        try {
-            const signature = await wallet.signTypedData(data.domain, data.types, data.message);
-            return splitSig(signature);
-        } catch (error) {
-            console.error("Error with ethers wallet signing:", error);
-            throw error;
-        }
+        throw new Error("Wallet does not support signTypedData method");
     }
 }
 
