@@ -25,14 +25,16 @@ export class PerpetualsInfoAPI {
   }
 
   async getMeta(rawResponse: boolean = false): Promise<Meta> {
-    const response = await this.httpApi.makeRequest({ type: InfoType.META });
+    const response = (await this.httpApi.makeRequest({ type: InfoType.META })) as Meta;
     return rawResponse
       ? response
       : await this.symbolConversion.convertResponse(response, ['name', 'coin', 'symbol'], 'PERP');
   }
 
   async getMetaAndAssetCtxs(rawResponse: boolean = false): Promise<MetaAndAssetCtxs> {
-    const response = await this.httpApi.makeRequest({ type: InfoType.PERPS_META_AND_ASSET_CTXS });
+    const response = (await this.httpApi.makeRequest({
+      type: InfoType.PERPS_META_AND_ASSET_CTXS,
+    })) as MetaAndAssetCtxs;
     return rawResponse
       ? response
       : await this.symbolConversion.convertResponse(response, ['name', 'coin', 'symbol'], 'PERP');
@@ -42,10 +44,10 @@ export class PerpetualsInfoAPI {
     user: string,
     rawResponse: boolean = false
   ): Promise<ClearinghouseState> {
-    const response = await this.httpApi.makeRequest({
+    const response = (await this.httpApi.makeRequest({
       type: InfoType.PERPS_CLEARINGHOUSE_STATE,
       user: user,
-    });
+    })) as ClearinghouseState;
     return rawResponse ? response : await this.symbolConversion.convertResponse(response);
   }
 
@@ -55,7 +57,7 @@ export class PerpetualsInfoAPI {
     endTime?: number,
     rawResponse: boolean = false
   ): Promise<UserFunding> {
-    const response = await this.httpApi.makeRequest(
+    const response = (await this.httpApi.makeRequest(
       {
         type: InfoType.USER_FUNDING,
         user: user,
@@ -63,7 +65,7 @@ export class PerpetualsInfoAPI {
         endTime: endTime,
       },
       20
-    );
+    )) as UserFunding;
     return rawResponse ? response : await this.symbolConversion.convertResponse(response);
   }
 
@@ -73,7 +75,7 @@ export class PerpetualsInfoAPI {
     endTime?: number,
     rawResponse: boolean = false
   ): Promise<UserNonFundingLedgerUpdates> {
-    const response = await this.httpApi.makeRequest(
+    const response = (await this.httpApi.makeRequest(
       {
         type: InfoType.USER_NON_FUNDING_LEDGER_UPDATES,
         user: user,
@@ -81,7 +83,7 @@ export class PerpetualsInfoAPI {
         endTime: endTime,
       },
       20
-    );
+    )) as UserNonFundingLedgerUpdates;
     return rawResponse ? response : await this.symbolConversion.convertResponse(response);
   }
 
@@ -92,7 +94,7 @@ export class PerpetualsInfoAPI {
     rawResponse: boolean = false
   ): Promise<FundingHistory> {
     await this.parent.ensureInitialized();
-    const response = await this.httpApi.makeRequest(
+    const response = (await this.httpApi.makeRequest(
       {
         type: InfoType.FUNDING_HISTORY,
         coin: await this.symbolConversion.convertSymbol(coin, 'reverse'),
@@ -100,17 +102,17 @@ export class PerpetualsInfoAPI {
         endTime: endTime,
       },
       20
-    );
+    )) as FundingHistory;
     return rawResponse ? response : await this.symbolConversion.convertResponse(response);
   }
 
   async getPredictedFundings(rawResponse: boolean = false): Promise<PredictedFundings> {
-    const response = await this.httpApi.makeRequest(
+    const response = (await this.httpApi.makeRequest(
       {
         type: InfoType.PREDICTED_FUNDINGS,
       },
       20
-    );
+    )) as PredictedFundings;
 
     return rawResponse ? response : await this.symbolConversion.convertResponse(response);
   }

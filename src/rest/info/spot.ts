@@ -13,7 +13,7 @@ export class SpotInfoAPI {
   }
 
   async getSpotMeta(rawResponse: boolean = false): Promise<SpotMeta> {
-    const response = await this.httpApi.makeRequest({ type: InfoType.SPOT_META });
+    const response = (await this.httpApi.makeRequest({ type: InfoType.SPOT_META })) as SpotMeta;
     return rawResponse
       ? response
       : await this.symbolConversion.convertResponse(response, ['name', 'coin', 'symbol'], 'SPOT');
@@ -23,17 +23,19 @@ export class SpotInfoAPI {
     user: string,
     rawResponse: boolean = false
   ): Promise<SpotClearinghouseState> {
-    const response = await this.httpApi.makeRequest({
+    const response = (await this.httpApi.makeRequest({
       type: InfoType.SPOT_CLEARINGHOUSE_STATE,
       user: user,
-    });
+    })) as SpotClearinghouseState;
     return rawResponse
       ? response
       : await this.symbolConversion.convertResponse(response, ['name', 'coin', 'symbol'], 'SPOT');
   }
 
   async getSpotMetaAndAssetCtxs(rawResponse: boolean = false): Promise<SpotMetaAndAssetCtxs> {
-    const response = await this.httpApi.makeRequest({ type: InfoType.SPOT_META_AND_ASSET_CTXS });
+    const response = (await this.httpApi.makeRequest({
+      type: InfoType.SPOT_META_AND_ASSET_CTXS,
+    })) as SpotMetaAndAssetCtxs;
     return rawResponse ? response : await this.symbolConversion.convertResponse(response);
   }
 
