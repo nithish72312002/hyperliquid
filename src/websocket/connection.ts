@@ -64,11 +64,11 @@ export class WebSocketClient {
         if (!this.WebSocketImpl) {
           if (environment.isNode) {
             throw new Error(
-              'This SDK requires Node.js version 22 or higher as earlier versions do not have support for the NodeJS native websockets.'
+              'WebSocket support not available. For Node.js, please install the "ws" package.'
             );
           } else if (environment.isReactNative) {
             throw new Error(
-              "WebSocket support is not available in React Native. Make sure you have polyfilled WebSocket: global.WebSocket = require('react-native').WebSocket;"
+              'WebSocket support not found in React Native environment.'
             );
           } else {
             throw new Error('WebSocket support is not available in this environment.');
@@ -76,8 +76,9 @@ export class WebSocketClient {
         }
 
         this.ws = new this.WebSocketImpl(this.url);
-
-        this.ws.onopen = () => {
+        
+        // Define event handlers in a cross-platform way
+        const handleOpen = () => {
           console.log('WebSocket connected');
           this.connected = true;
           this.connecting = false;
@@ -88,31 +89,31 @@ export class WebSocketClient {
           resolve();
         };
 
-        this.ws.onmessage = (event: MessageEvent) => {
+        const handleMessage = (event: any) => {
           try {
             // Handle different message event formats between platforms
-            const message = typeof event.data === 'string'
-              ? JSON.parse(event.data)
-              : JSON.parse(event.data.toString());
-
+            const data = typeof event.data === 'string' 
+                ? JSON.parse(event.data)
+                : JSON.parse(event.data.toString());
+            
             // Debug log for post responses
-            if (message.channel === 'post') {
-              console.log('Received WebSocket post response:', JSON.stringify(message));
+            if (data.channel === 'post') {
+              console.log('Received WebSocket post response:', JSON.stringify(data));
             }
-
+            
             // Handle pong responses
-            if (message.channel === 'pong') {
+            if (data.channel === 'pong') {
               this.lastPongReceived = Date.now();
             }
 
-            this.emit('message', message);
+            this.emit('message', data);
           } catch (error) {
             console.error('Error processing WebSocket message:', error);
-            console.error('Raw message data:', typeof event.data === 'string' ? event.data : 'binary data');
+            console.error('Raw message data:', event.data);
           }
         };
 
-        this.ws.onerror = (event: Event) => {
+        const handleError = (event: any) => {
           console.error('WebSocket error:', event);
           this.emit('error', event);
           if (!this.connected) {
@@ -121,7 +122,7 @@ export class WebSocketClient {
           }
         };
 
-        this.ws.onclose = () => {
+        const handleClose = () => {
           console.log('WebSocket disconnected');
           this.connected = false;
           this.connecting = false;
@@ -136,6 +137,21 @@ export class WebSocketClient {
             this.emit('manualDisconnect');
           }
         };
+
+        // Bind event handlers in a cross-platform way
+        if (typeof this.ws.addEventListener === 'function') {
+          // Browser or React Native
+          this.ws.addEventListener('open', handleOpen);
+          this.ws.addEventListener('message', handleMessage);
+          this.ws.addEventListener('error', handleError);
+          this.ws.addEventListener('close', handleClose);
+        } else {
+          // Node.js ws package or other environment
+          this.ws.onopen = handleOpen;
+          this.ws.onmessage = handleMessage;
+          this.ws.onerror = handleError;
+          this.ws.onclose = handleClose;
+        }
       } catch (error) {
         this.connecting = false;
         reject(error);

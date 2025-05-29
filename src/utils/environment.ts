@@ -24,16 +24,18 @@ export const environment = {
     if (this.isReactNative) {
       return true; // React Native has native WebSocket support
     }
-
-    if (this.isBrowser || this.isWebWorker) {
-      return 'WebSocket' in (this.isBrowser ? window : self);
+    
+    if (this.isBrowser) {
+      return typeof WebSocket !== 'undefined';
     }
-
+    
     if (this.isNode) {
-      // Node.js v23+ has native WebSocket support
-      const nodeVersion = process.versions.node;
-      const major = parseInt(nodeVersion.split('.')[0], 10);
-      return major >= 23;
+      // Node.js v19+ has native WebSocket, but it might not be enabled by default
+      return typeof (globalThis as any).WebSocket !== 'undefined';
+    }
+    
+    if (this.isWebWorker) {
+      return typeof WebSocket !== 'undefined' || 'WebSocket' in self;
     }
 
     return false;
