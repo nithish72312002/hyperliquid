@@ -25,7 +25,10 @@ export class WebSocketClient {
     this.url = testnet ? CONSTANTS.WSS_URLS.TESTNET : CONSTANTS.WSS_URLS.PRODUCTION;
 
     // Determine which WebSocket implementation to use
-    if (environment.hasNativeWebSocket()) {
+    if (environment.isReactNative) {
+      // React Native has global WebSocket
+      this.WebSocketImpl = WebSocket;
+    } else if (environment.hasNativeWebSocket()) {
       this.WebSocketImpl = WebSocket;
     } else if (environment.isNode) {
       try {
@@ -63,6 +66,10 @@ export class WebSocketClient {
             throw new Error(
               'This SDK requires Node.js version 22 or higher as earlier versions do not have support for the NodeJS native websockets.'
             );
+          } else if (environment.isReactNative) {
+            throw new Error(
+              'WebSocket support is not available in React Native. Make sure you have polyfilled WebSocket: global.WebSocket = require(\'react-native\').WebSocket;'
+            );
           } else {
             throw new Error('WebSocket support is not available in this environment.');
           }
@@ -84,17 +91,17 @@ export class WebSocketClient {
         this.ws.onmessage = (event: MessageEvent) => {
           try {
             const message = JSON.parse(event.data);
-
+            
             // Debug log for post responses
             if (message.channel === 'post') {
               console.log('Received WebSocket post response:', JSON.stringify(message));
             }
-
+            
             // Handle pong responses
             if (message.channel === 'pong') {
               this.lastPongReceived = Date.now();
             }
-
+            
             this.emit('message', message);
           } catch (error) {
             console.error('Error processing WebSocket message:', error);
@@ -117,7 +124,7 @@ export class WebSocketClient {
           this.connecting = false;
           this.stopPingInterval();
           this.emit('close');
-
+          
           // Only attempt to reconnect if not manually disconnected
           if (!this.manualDisconnect) {
             this.reconnect();
