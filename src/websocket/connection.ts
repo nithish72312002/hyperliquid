@@ -17,6 +17,7 @@ export class WebSocketClient {
     private connectionPromise: Promise<void> | null = null;
     private subscriptionCount: number = 0;
     private lastPongReceived: number = 0;
+    
     private readonly MAX_SUBSCRIPTIONS: number = 1000; // Maximum subscriptions per IP as per API docs
 
     constructor(testnet: boolean = false, maxReconnectAttempts:number=5) {
