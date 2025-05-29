@@ -193,23 +193,10 @@ export class SpotInfoAPI {
      * @param isTestnet Whether to use testnet environment for EVM calls
      * @returns Array of coins with EVM contracts including name, EVM address, system address, token ID, decimals, and balance
      */
-    async getEvmTokensWithBalances(walletAddress: string, rawResponse: boolean = false, isTestnet: boolean = false) {
+    async getEvmTokensWithBalances(walletAddress: string, isTestnet: boolean = false) {
         // Get the EVM tokens first
         const evmTokens = await this.getEvmTokens(true);
-
-        const clearinghouseState = await this.getSpotClearinghouseState(walletAddress, true);
-    
-        const coreBalanceMap = new Map();
-        if (clearinghouseState.balances && Array.isArray(clearinghouseState.balances)) {
-            clearinghouseState.balances.forEach((balance: any) => {
-                coreBalanceMap.set(balance.token, {
-                    total: balance.total,
-                    hold: balance.hold,
-                    withdrawable:  (parseFloat(balance.total) - parseFloat(balance.hold)).toString()
-                });
-            });
-        }
-    
+        
         // Initialize the multicall client with the appropriate network setting
         const client = new MulticallClient(isTestnet);
         
@@ -230,46 +217,28 @@ export class SpotInfoAPI {
         
         // Merge the balances back into our token list
         const tokensWithBalances = evmTokens.map(token => {
-            // Base token object with on-chain balance
-            let result: any;
-            
             // Special handling for HYPE token
             if (token.name === "HYPE") {
-                result = {
+                return {
                     ...token,
                     balance: nativeBalance.formattedBalance,
                     rawBalance: nativeBalance.balance.toString()
                 };
-            } else {
-                // Regular ERC20 token handling
-                const balanceEntry = balanceResult.balances.find(
-                    (balance: any) => token.evmAddress && balance.address.toLowerCase() === token.evmAddress.toLowerCase()
-                );
-                
-                result = {
-                    ...token,
-                    balance: balanceEntry?.formattedBalance ?? '0',
-                    rawBalance: balanceEntry ? balanceEntry.balance.toString() : '0'
-                };
             }
             
-            // Add core balance data if it exists
-            const coreBalance = coreBalanceMap.get(token.index);
-            if (coreBalance) {
-                result.coreTotal = coreBalance.total;
-                result.coreHold = coreBalance.hold;
-                result.coreWithdrawable = coreBalance.withdrawable;
-            } else {
-                // Provide default values instead of undefined
-                result.coreTotal = '0';
-                result.coreHold = '0';
-                result.coreWithdrawable = '0';
-            }
+            // Regular ERC20 token handling
+            const balanceEntry = balanceResult.balances.find(
+                (balance: any) => token.evmAddress && balance.address.toLowerCase() === token.evmAddress.toLowerCase()
+            );
             
-            return result;
+            return {
+                ...token,
+                balance: balanceEntry?.formattedBalance ?? '0',
+                rawBalance: balanceEntry ? balanceEntry.balance.toString() : '0'
+            };
         });
         
-        // Apply symbol conversion if needed
-        return rawResponse ? tokensWithBalances : await this.symbolConversion.convertResponse(tokensWithBalances, ["name"], "SPOT");
+        // No symbol conversion needed
+        return tokensWithBalances;
     }
 }
