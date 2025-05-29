@@ -90,7 +90,10 @@ export class WebSocketClient {
 
         this.ws.onmessage = (event: MessageEvent) => {
           try {
-            const message = JSON.parse(event.data);
+            // Handle different message event formats between platforms
+            const message = typeof event.data === 'string'
+              ? JSON.parse(event.data)
+              : JSON.parse(event.data.toString());
 
             // Debug log for post responses
             if (message.channel === 'post') {
@@ -105,7 +108,7 @@ export class WebSocketClient {
             this.emit('message', message);
           } catch (error) {
             console.error('Error processing WebSocket message:', error);
-            console.error('Raw message data:', event.data);
+            console.error('Raw message data:', typeof event.data === 'string' ? event.data : 'binary data');
           }
         };
 
