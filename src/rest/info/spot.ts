@@ -163,10 +163,9 @@ export class SpotInfoAPI {
 
   /**
    * Returns a list of all coins that have an EVM contract
-   * @param rawResponse Whether to return the raw response without symbol conversion
    * @returns Array of coins with EVM contracts, including name, EVM address, system address, token ID, and decimals
    */
-  async getEvmTokens(rawResponse: boolean = false): Promise<
+  async getEvmTokens(): Promise<
     Array<{
       name: string;
       index: number;
@@ -214,27 +213,20 @@ export class SpotInfoAPI {
       });
 
     // Apply symbol conversion if needed
-    return rawResponse
-      ? evmTokens
-      : await this.symbolConversion.convertResponse(evmTokens, ['name'], 'SPOT');
+    return evmTokens;
   }
 
   /**
    * Returns a list of all coins that have an EVM contract along with their balances for a specific wallet
    * @param walletAddress The wallet address to check balances for
-   * @param rawResponse Whether to return the raw response without symbol conversion
    * @param isTestnet Whether to use testnet environment for EVM calls
    * @returns Array of coins with EVM contracts including name, EVM address, system address, token ID, decimals, and balance
    */
-  async getEvmTokensWithBalances(
-    walletAddress: string,
-    rawResponse: boolean = false,
-    isTestnet: boolean = false
-  ) {
+  async getEvmTokensWithBalances(walletAddress: string, isTestnet: boolean = false) {
     // Get the EVM tokens first
-    const evmTokens = await this.getEvmTokens(true);
+    const evmTokens = await this.getEvmTokens();
 
-    const clearinghouseState = await this.getSpotClearinghouseState(walletAddress, true);
+    const clearinghouseState = await this.getSpotClearinghouseState(walletAddress);
 
     const coreBalanceMap = new Map();
     if (clearinghouseState.balances && Array.isArray(clearinghouseState.balances)) {
@@ -308,8 +300,6 @@ export class SpotInfoAPI {
     });
 
     // Apply symbol conversion if needed
-    return rawResponse
-      ? tokensWithBalances
-      : await this.symbolConversion.convertResponse(tokensWithBalances, ['name'], 'SPOT');
+    return tokensWithBalances
   }
 }
