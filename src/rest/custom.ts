@@ -14,6 +14,7 @@ export class CustomOperations {
   private exchange: ExchangeAPI;
   private infoApi: InfoAPI;
   private wallet?: ethers.Wallet;
+  private account?: any; // For thirdweb account
   private symbolConversion: SymbolConversion;
   private walletAddress: string | null;
   private parent?: Hyperliquid;
@@ -23,7 +24,8 @@ export class CustomOperations {
     infoApiOrPrivateKey?: InfoAPI | string,
     privateKeyOrSymbolConversion?: string | SymbolConversion,
     symbolConversionOrWalletAddress?: SymbolConversion | string | null,
-    walletAddress?: string | null
+    walletAddress?: string | null,
+    account?: any
   ) {
     // Check if first argument is Hyperliquid instance
     if (exchangeOrParent instanceof Hyperliquid) {

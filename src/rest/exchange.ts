@@ -53,7 +53,8 @@ import { Hyperliquid } from '../index';
 // const IS_MAINNET = true; // Make sure this matches the IS_MAINNET in signing.ts
 
 export class ExchangeAPI {
-  private wallet: ethers.Wallet;
+  private wallet: ethers.Wallet | null;
+  private account: any; // For thirdweb account support
   private httpApi: HttpApi;
   private symbolConversion: SymbolConversion;
   private IS_MAINNET = true;
@@ -67,18 +68,28 @@ export class ExchangeAPI {
 
   constructor(
     testnet: boolean,
-    privateKey: string,
+    privateKey: string | null,
     private info: InfoAPI,
     rateLimiter: RateLimiter,
     symbolConversion: SymbolConversion,
     walletAddress: string | null = null,
     parent: Hyperliquid,
-    vaultAddress: string | null = null
+    vaultAddress: string | null = null,
+    account: any = null
   ) {
     const baseURL = testnet ? CONSTANTS.BASE_URLS.TESTNET : CONSTANTS.BASE_URLS.PRODUCTION;
     this.IS_MAINNET = !testnet;
     this.httpApi = new HttpApi(baseURL, ENDPOINTS.EXCHANGE, rateLimiter);
-    this.wallet = new ethers.Wallet(privateKey);
+    
+    // Initialize either wallet or account
+    if (privateKey) {
+      this.wallet = new ethers.Wallet(privateKey);
+      this.account = null;
+    } else {
+      this.wallet = null;
+      this.account = account;
+    }
+    
     this.symbolConversion = symbolConversion;
     this.walletAddress = walletAddress;
     this.parent = parent;
@@ -161,6 +172,7 @@ export class ExchangeAPI {
       const nonce = this.generateUniqueNonce();
       const signature = await signL1Action(
         this.wallet,
+        this.account,
         actions,
         vaultAddress,
         nonce,
@@ -197,6 +209,7 @@ export class ExchangeAPI {
       const nonce = this.generateUniqueNonce();
       const signature = await signL1Action(
         this.wallet,
+        this.account,
         action,
         vaultAddress,
         nonce,
@@ -223,6 +236,7 @@ export class ExchangeAPI {
       const nonce = this.generateUniqueNonce();
       const signature = await signL1Action(
         this.wallet,
+        this.account,
         action,
         vaultAddress,
         nonce,
@@ -265,6 +279,7 @@ export class ExchangeAPI {
       const nonce = this.generateUniqueNonce();
       const signature = await signL1Action(
         this.wallet,
+        this.account,
         action,
         vaultAddress,
         nonce,
@@ -313,6 +328,7 @@ export class ExchangeAPI {
       const nonce = this.generateUniqueNonce();
       const signature = await signL1Action(
         this.wallet,
+        this.account,
         action,
         vaultAddress,
         nonce,
@@ -341,6 +357,7 @@ export class ExchangeAPI {
       const nonce = this.generateUniqueNonce();
       const signature = await signL1Action(
         this.wallet,
+        this.account,
         action,
         vaultAddress,
         nonce,
@@ -369,6 +386,7 @@ export class ExchangeAPI {
       const nonce = this.generateUniqueNonce();
       const signature = await signL1Action(
         this.wallet,
+        this.account,
         action,
         vaultAddress,
         nonce,
@@ -394,7 +412,12 @@ export class ExchangeAPI {
         amount: amount.toString(),
         time: Date.now(),
       };
-      const signature = await signUsdTransferAction(this.wallet, action, this.IS_MAINNET);
+      const signature = await signUsdTransferAction(
+        this.wallet,
+        this.account,
+        action,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce: action.time, signature };
       return this.httpApi.makeRequest(payload, 1); // Remove the third parameter
@@ -417,6 +440,7 @@ export class ExchangeAPI {
       };
       const signature = await signUserSignedAction(
         this.wallet,
+        this.account,
         action,
         [
           { name: 'hyperliquidChain', type: 'string' },
@@ -448,7 +472,12 @@ export class ExchangeAPI {
         amount: amount.toString(),
         time: Date.now(),
       };
-      const signature = await signWithdrawFromBridgeAction(this.wallet, action, this.IS_MAINNET);
+      const signature = await signWithdrawFromBridgeAction(
+        this.wallet,
+        this.account,
+        action,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce: action.time, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -519,6 +548,7 @@ export class ExchangeAPI {
       const nonce = this.generateUniqueNonce();
       const signature = await signL1Action(
         this.wallet,
+        this.account,
         actions,
         vaultAddress,
         nonce,
@@ -559,6 +589,7 @@ export class ExchangeAPI {
       const nonce = this.generateUniqueNonce();
       const signature = await signL1Action(
         this.wallet,
+        this.account,
         action,
         vaultAddress,
         nonce,
@@ -585,6 +616,7 @@ export class ExchangeAPI {
       const nonce = this.generateUniqueNonce();
       const signature = await signL1Action(
         this.wallet,
+        this.account,
         action,
         vaultAddress,
         nonce,
@@ -613,6 +645,7 @@ export class ExchangeAPI {
 
       const signature = await signUserSignedAction(
         this.wallet,
+        this.account,
         action,
         [
           { name: 'hyperliquidChain', type: 'string' },
@@ -637,7 +670,14 @@ export class ExchangeAPI {
     try {
       const action = { type: ExchangeType.SCHEDULE_CANCEL, time };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(
+        this.wallet,
+        this.account,
+        action,
+        null,
+        nonce,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -657,7 +697,14 @@ export class ExchangeAPI {
         usd,
       };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(
+        this.wallet,
+        this.account,
+        action,
+        null,
+        nonce,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -682,7 +729,14 @@ export class ExchangeAPI {
         initialUsd,
         nonce,
       };
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(
+        this.wallet,
+        this.account,
+        action,
+        null,
+        nonce,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -701,7 +755,14 @@ export class ExchangeAPI {
         usd,
       };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(
+        this.wallet,
+        this.account,
+        action,
+        null,
+        nonce,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -725,7 +786,14 @@ export class ExchangeAPI {
         alwaysCloseOnWithdraw,
       };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(
+        this.wallet,
+        this.account,
+        action,
+        null,
+        nonce,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -742,7 +810,14 @@ export class ExchangeAPI {
         code,
       };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(
+        this.wallet,
+        this.account,
+        action,
+        null,
+        nonce,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -756,7 +831,14 @@ export class ExchangeAPI {
     try {
       const action = { type: ExchangeType.EVM_USER_MODIFY, usingBigBlocks };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(
+        this.wallet,
+        this.account,
+        action,
+        null,
+        nonce,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -788,6 +870,7 @@ export class ExchangeAPI {
       const nonce = this.generateUniqueNonce();
       const signature = await signL1Action(
         this.wallet,
+        this.account,
         action,
         vaultAddress,
         nonce,
@@ -816,6 +899,7 @@ export class ExchangeAPI {
       const nonce = this.generateUniqueNonce();
       const signature = await signL1Action(
         this.wallet,
+        this.account,
         action,
         vaultAddress,
         nonce,
@@ -842,7 +926,12 @@ export class ExchangeAPI {
         nonce: nonce,
       };
 
-      const signature = await signAgent(this.wallet, action, this.IS_MAINNET);
+      const signature = await signAgent(
+        this.wallet,
+        this.account,
+        action,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce: action.nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -876,6 +965,7 @@ export class ExchangeAPI {
       // Sign the action with the correct types
       const signature = await signUserSignedAction(
         this.wallet,
+        this.account,
         action,
         [
           { name: 'hyperliquidChain', type: 'string' },
@@ -909,7 +999,14 @@ export class ExchangeAPI {
         type: ExchangeType.CLAIM_REWARDS,
       };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(
+        this.wallet,
+        this.account,
+        action,
+        null,
+        nonce,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -927,7 +1024,14 @@ export class ExchangeAPI {
         name,
       };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(
+        this.wallet,
+        this.account,
+        action,
+        null,
+        nonce,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -945,7 +1049,14 @@ export class ExchangeAPI {
         displayName,
       };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(
+        this.wallet,
+        this.account,
+        action,
+        null,
+        nonce,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -965,7 +1076,14 @@ export class ExchangeAPI {
         },
       };
       const nonce = this.generateUniqueNonce();
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(
+        this.wallet,
+        this.account,
+        action,
+        null,
+        nonce,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -989,6 +1107,7 @@ export class ExchangeAPI {
 
       const signature = await signUserSignedAction(
         this.wallet,
+        this.account,
         action,
         [
           { name: 'hyperliquidChain', type: 'string' },
@@ -1021,6 +1140,7 @@ export class ExchangeAPI {
 
       const signature = await signUserSignedAction(
         this.wallet,
+        this.account,
         action,
         [
           { name: 'hyperliquidChain', type: 'string' },
@@ -1055,7 +1175,14 @@ export class ExchangeAPI {
         nonce,
       };
 
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(
+        this.wallet,
+        this.account,
+        action,
+        null,
+        nonce,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -1082,7 +1209,14 @@ export class ExchangeAPI {
         amount,
       };
 
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(
+        this.wallet,
+        this.account,
+        action,
+        null,
+        nonce,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);
@@ -1108,6 +1242,7 @@ export class ExchangeAPI {
       const nonce = this.generateUniqueNonce();
       const signature = await signL1Action(
         this.wallet,
+        this.account,
         action,
         vaultAddress,
         nonce,
@@ -1137,7 +1272,14 @@ export class ExchangeAPI {
         usd,
       };
 
-      const signature = await signL1Action(this.wallet, action, null, nonce, this.IS_MAINNET);
+      const signature = await signL1Action(
+        this.wallet,
+        this.account,
+        action,
+        null,
+        nonce,
+        this.IS_MAINNET
+      );
 
       const payload = { action, nonce, signature };
       return this.httpApi.makeRequest(payload, 1);

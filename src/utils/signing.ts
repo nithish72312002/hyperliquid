@@ -70,7 +70,8 @@ function constructPhantomAgent(hash: string, isMainnet: boolean) {
 }
 
 export async function signL1Action(
-  wallet: Wallet | HDNodeWallet,
+  wallet: Wallet | HDNodeWallet | null,
+  account: any,
   action: unknown,
   activePool: string | null,
   nonce: number,
@@ -85,11 +86,12 @@ export async function signL1Action(
     primaryType: 'Agent',
     message: phantomAgent,
   };
-  return signInner(wallet, data);
+  return signInner(wallet, account, data);
 }
 
 export async function signUserSignedAction(
-  wallet: Wallet,
+  wallet: Wallet | HDNodeWallet | null,
+  account: any,
   action: any,
   payloadTypes: Array<{ name: string; type: string }>,
   primaryType: string,
@@ -109,16 +111,18 @@ export async function signUserSignedAction(
     message: action,
   };
 
-  return signInner(wallet, data);
+  return signInner(wallet, account, data);
 }
 
 export async function signUsdTransferAction(
-  wallet: Wallet,
+  wallet: Wallet | HDNodeWallet | null,
+  account: any,
   action: any,
   isMainnet: boolean
 ): Promise<Signature> {
   return signUserSignedAction(
     wallet,
+    account,
     action,
     [
       { name: 'hyperliquidChain', type: 'string' },
@@ -132,12 +136,14 @@ export async function signUsdTransferAction(
 }
 
 export async function signWithdrawFromBridgeAction(
-  wallet: Wallet,
+  wallet: Wallet | HDNodeWallet | null,
+  account: any,
   action: any,
   isMainnet: boolean
 ): Promise<Signature> {
   return signUserSignedAction(
     wallet,
+    account,
     action,
     [
       { name: 'hyperliquidChain', type: 'string' },
@@ -151,12 +157,14 @@ export async function signWithdrawFromBridgeAction(
 }
 
 export async function signAgent(
-  wallet: Wallet,
+  wallet: Wallet | HDNodeWallet | null,
+  account: any,
   action: any,
   isMainnet: boolean
 ): Promise<Signature> {
   return signUserSignedAction(
     wallet,
+    account,
     action,
     [
       { name: 'hyperliquidChain', type: 'string' },
@@ -169,9 +177,45 @@ export async function signAgent(
   );
 }
 
-async function signInner(wallet: Wallet | HDNodeWallet, data: any): Promise<Signature> {
-  const signature = await wallet.signTypedData(data.domain, data.types, data.message);
-  return splitSig(signature);
+async function signInner(wallet: Wallet | HDNodeWallet | null, account: any, data: any): Promise<Signature> {
+  // First check if this is an ethers.js Wallet instance
+  if (wallet) {
+    try {
+      // Use standard ethers wallet approach with positional parameters
+      const signature = await wallet.signTypedData(data.domain, data.types, data.message);
+      return splitSig(signature);
+    } catch (error) {
+      console.error("Error with ethers wallet signing:", error);
+      throw error;
+    }
+  } 
+  // Otherwise, assume it's a ThirdWeb-style account (or other Web3 provider)
+  else if (account && typeof account.signTypedData === 'function') {
+    try {
+      // Use the thirdweb-style object parameter structure
+      const signature = await account.signTypedData({
+        domain: data.domain,
+        message: data.message,
+        primaryType: data.primaryType,
+        types: {
+          EIP712Domain: [
+            { name: 'name', type: 'string' },
+            { name: 'version', type: 'string' },
+            { name: 'chainId', type: 'uint256' },
+            { name: 'verifyingContract', type: 'address' }
+          ],
+          ...data.types
+        }
+      });
+      
+      return splitSig(signature);
+    } catch (error) {
+      console.error("Error with ThirdWeb-style signing:", error);
+      throw error;
+    }
+  } else {
+    throw new Error("No valid signing method available. Please provide either a wallet or an account.");
+  }
 }
 
 function splitSig(sig: string): Signature {
