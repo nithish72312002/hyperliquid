@@ -47,6 +47,57 @@ export class SpotInfoAPI {
     }
 
     /**
+     * Returns all spot balances from the clearinghouse state regardless of EVM compatibility
+     * @param user The user address to check balances for
+     * @returns Array of all spot balances with coin name, token index, total balance, hold amount, withdrawable amount, and token ID
+     */
+    async getAllSpotBalances(user: string): Promise<Array<{
+        coin: string;
+        token: number;
+        total: string;
+        hold: string;
+        withdrawable: string;
+        tokenId: string;
+    }>> {
+        // Get both the clearinghouse state and meta data
+        const [clearinghouseState, meta] = await Promise.all([
+            this.getSpotClearinghouseState(user, true),
+            this.getSpotMeta(true)
+        ]);
+
+        // Create a mapping of token index to tokenId
+        const tokenIdMapping = new Map<number, string>();
+        
+        // Access the tokens array to get token IDs
+        meta.tokens.forEach((token: any) => {
+            if (token.tokenId) {
+                tokenIdMapping.set(token.index, token.tokenId);
+            }
+        });
+
+        // Process all balances
+        const allBalances = (clearinghouseState.balances as any[])
+            .map(balance => {
+                // Calculate withdrawable (total - hold)
+                const withdrawable = (parseFloat(balance.total) - parseFloat(balance.hold)).toString();
+                
+                // Get tokenId if available
+                const tokenId = tokenIdMapping.get(balance.token) || '';
+                
+                return {
+                    coin: balance.coin,
+                    token: balance.token,
+                    total: balance.total,
+                    hold: balance.hold,
+                    withdrawable: withdrawable,
+                    tokenId: tokenId
+                };
+            });
+        
+        return allBalances;
+    }
+
+    /**
      * Returns a list of assets that can be transferred between HyperEVM and spot
      * Only assets with an EVM contract can be transferred
      * @param user The user address to check transferrable assets for
@@ -134,10 +185,9 @@ export class SpotInfoAPI {
 
     /**
      * Returns a list of all coins that have an EVM contract
-     * @param rawResponse Whether to return the raw response without symbol conversion
      * @returns Array of coins with EVM contracts, including name, EVM address, system address, token ID, and decimals
      */
-    async getEvmTokens(rawResponse: boolean = false): Promise<Array<{
+    async getEvmTokens(): Promise<Array<{
         name: string;
         index: number;
         evmAddress: string;
@@ -183,20 +233,32 @@ export class SpotInfoAPI {
             });
 
         // Apply symbol conversion if needed
-        return rawResponse ? evmTokens : await this.symbolConversion.convertResponse(evmTokens, ["name"], "SPOT");
+        return evmTokens;
     }
 
     /**
      * Returns a list of all coins that have an EVM contract along with their balances for a specific wallet
      * @param walletAddress The wallet address to check balances for
-     * @param rawResponse Whether to return the raw response without symbol conversion
      * @param isTestnet Whether to use testnet environment for EVM calls
      * @returns Array of coins with EVM contracts including name, EVM address, system address, token ID, decimals, and balance
      */
     async getEvmTokensWithBalances(walletAddress: string, isTestnet: boolean = false) {
         // Get the EVM tokens first
-        const evmTokens = await this.getEvmTokens(true);
-        
+        const evmTokens = await this.getEvmTokens();
+
+        const clearinghouseState = await this.getSpotClearinghouseState(walletAddress);
+    
+        const coreBalanceMap = new Map();
+        if (clearinghouseState.balances && Array.isArray(clearinghouseState.balances)) {
+            clearinghouseState.balances.forEach((balance: any) => {
+                coreBalanceMap.set(balance.token, {
+                    total: balance.total,
+                    hold: balance.hold,
+                    withdrawable:  (parseFloat(balance.total) - parseFloat(balance.hold)).toString()
+                });
+            });
+        }
+    
         // Initialize the multicall client with the appropriate network setting
         const client = new MulticallClient(isTestnet);
         
@@ -217,28 +279,46 @@ export class SpotInfoAPI {
         
         // Merge the balances back into our token list
         const tokensWithBalances = evmTokens.map(token => {
+            // Base token object with on-chain balance
+            let result: any;
+            
             // Special handling for HYPE token
             if (token.name === "HYPE") {
-                return {
+                result = {
                     ...token,
                     balance: nativeBalance.formattedBalance,
                     rawBalance: nativeBalance.balance.toString()
                 };
+            } else {
+                // Regular ERC20 token handling
+                const balanceEntry = balanceResult.balances.find(
+                    (balance: any) => token.evmAddress && balance.address.toLowerCase() === token.evmAddress.toLowerCase()
+                );
+                
+                result = {
+                    ...token,
+                    balance: balanceEntry?.formattedBalance ?? '0',
+                    rawBalance: balanceEntry ? balanceEntry.balance.toString() : '0'
+                };
             }
             
-            // Regular ERC20 token handling
-            const balanceEntry = balanceResult.balances.find(
-                (balance: any) => token.evmAddress && balance.address.toLowerCase() === token.evmAddress.toLowerCase()
-            );
+            // Add core balance data if it exists
+            const coreBalance = coreBalanceMap.get(token.index);
+            if (coreBalance) {
+                result.coreTotal = coreBalance.total;
+                result.coreHold = coreBalance.hold;
+                result.coreWithdrawable = coreBalance.withdrawable;
+            } else {
+                // Provide default values instead of undefined
+                result.coreTotal = '0';
+                result.coreHold = '0';
+                result.coreWithdrawable = '0';
+            }
             
-            return {
-                ...token,
-                balance: balanceEntry?.formattedBalance ?? '0',
-                rawBalance: balanceEntry ? balanceEntry.balance.toString() : '0'
-            };
+            return result;
         });
         
-        // No symbol conversion needed
+        // Apply symbol conversion if needed
         return tokensWithBalances;
     }
 }

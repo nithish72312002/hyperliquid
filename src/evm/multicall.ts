@@ -45,6 +45,7 @@ export const HYPERLIQUID_RPC_URLS = {
 };
 export const HYPERLIQUID_MULTICALL_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11';
 
+
 // ERC20 ABI (minimal, just for balanceOf)
 const erc20Abi = [
   {
