@@ -7,4 +7,3 @@ src/**/*.js
 .vscode/
 /dist
 *.env
-compare
