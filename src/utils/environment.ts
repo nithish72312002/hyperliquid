@@ -24,16 +24,16 @@ export const environment = {
     if (this.isReactNative) {
       return true; // React Native has native WebSocket support
     }
-    
+
     if (this.isBrowser) {
       return typeof WebSocket !== 'undefined';
     }
-    
+
     if (this.isNode) {
       // Node.js v19+ has native WebSocket, but it might not be enabled by default
       return typeof (globalThis as any).WebSocket !== 'undefined';
     }
-    
+
     if (this.isWebWorker) {
       return typeof WebSocket !== 'undefined' || 'WebSocket' in self;
     }

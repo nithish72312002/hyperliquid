@@ -67,16 +67,14 @@ export class WebSocketClient {
               'WebSocket support not available. For Node.js, please install the "ws" package.'
             );
           } else if (environment.isReactNative) {
-            throw new Error(
-              'WebSocket support not found in React Native environment.'
-            );
+            throw new Error('WebSocket support not found in React Native environment.');
           } else {
             throw new Error('WebSocket support is not available in this environment.');
           }
         }
 
         this.ws = new this.WebSocketImpl(this.url);
-        
+
         // Define event handlers in a cross-platform way
         const handleOpen = () => {
           console.log('WebSocket connected');
@@ -92,15 +90,16 @@ export class WebSocketClient {
         const handleMessage = (event: any) => {
           try {
             // Handle different message event formats between platforms
-            const data = typeof event.data === 'string' 
+            const data =
+              typeof event.data === 'string'
                 ? JSON.parse(event.data)
                 : JSON.parse(event.data.toString());
-            
+
             // Debug log for post responses
             if (data.channel === 'post') {
               console.log('Received WebSocket post response:', JSON.stringify(data));
             }
-            
+
             // Handle pong responses
             if (data.channel === 'pong') {
               this.lastPongReceived = Date.now();
