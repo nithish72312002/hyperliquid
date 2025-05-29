@@ -80,7 +80,7 @@ export class ExchangeAPI {
     const baseURL = testnet ? CONSTANTS.BASE_URLS.TESTNET : CONSTANTS.BASE_URLS.PRODUCTION;
     this.IS_MAINNET = !testnet;
     this.httpApi = new HttpApi(baseURL, ENDPOINTS.EXCHANGE, rateLimiter);
-    
+
     // Initialize either wallet or account
     if (privateKey) {
       this.wallet = new ethers.Wallet(privateKey);
@@ -89,7 +89,7 @@ export class ExchangeAPI {
       this.wallet = null;
       this.account = account;
     }
-    
+
     this.symbolConversion = symbolConversion;
     this.walletAddress = walletAddress;
     this.parent = parent;

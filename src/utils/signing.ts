@@ -177,7 +177,11 @@ export async function signAgent(
   );
 }
 
-async function signInner(wallet: Wallet | HDNodeWallet | null, account: any, data: any): Promise<Signature> {
+async function signInner(
+  wallet: Wallet | HDNodeWallet | null,
+  account: any,
+  data: any
+): Promise<Signature> {
   // First check if this is an ethers.js Wallet instance
   if (wallet) {
     try {
@@ -185,10 +189,10 @@ async function signInner(wallet: Wallet | HDNodeWallet | null, account: any, dat
       const signature = await wallet.signTypedData(data.domain, data.types, data.message);
       return splitSig(signature);
     } catch (error) {
-      console.error("Error with ethers wallet signing:", error);
+      console.error('Error with ethers wallet signing:', error);
       throw error;
     }
-  } 
+  }
   // Otherwise, assume it's a ThirdWeb-style account (or other Web3 provider)
   else if (account && typeof account.signTypedData === 'function') {
     try {
@@ -202,19 +206,21 @@ async function signInner(wallet: Wallet | HDNodeWallet | null, account: any, dat
             { name: 'name', type: 'string' },
             { name: 'version', type: 'string' },
             { name: 'chainId', type: 'uint256' },
-            { name: 'verifyingContract', type: 'address' }
+            { name: 'verifyingContract', type: 'address' },
           ],
-          ...data.types
-        }
+          ...data.types,
+        },
       });
-      
+
       return splitSig(signature);
     } catch (error) {
-      console.error("Error with ThirdWeb-style signing:", error);
+      console.error('Error with ThirdWeb-style signing:', error);
       throw error;
     }
   } else {
-    throw new Error("No valid signing method available. Please provide either a wallet or an account.");
+    throw new Error(
+      'No valid signing method available. Please provide either a wallet or an account.'
+    );
   }
 }
 

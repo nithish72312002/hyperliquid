@@ -391,4 +391,15 @@ export class GeneralInfoAPI {
     });
     return rawResponse ? response : await this.symbolConversion.convertResponse(response);
   }
+
+  async webData2(user?: string, rawResponse: boolean = false): Promise<any> {
+    const params: any = {
+      type: InfoType.WEB_DATA2,
+      user: user || '0x0000000000000000000000000000000000000000',
+    };
+
+    const response = await this.httpApi.makeRequest(params);
+
+    return rawResponse ? response : await this.symbolConversion.processWebData2(response);
+  }
 }

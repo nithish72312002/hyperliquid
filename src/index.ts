@@ -242,33 +242,33 @@ export class Hyperliquid {
       if (!account || typeof account.signTypedData !== 'function') {
         throw new Error('Invalid account. Account must have a signTypedData method.');
       }
-      
+
       // Create exchange API with account
       this.exchange = new ExchangeAPI(
-        testnet, 
+        testnet,
         null, // No private key
-        this.info, 
-        this.rateLimiter, 
-        this.symbolConversion, 
+        this.info,
+        this.rateLimiter,
+        this.symbolConversion,
         this.walletAddress,
         this,
         this.vaultAddress,
         account // Pass the account to ExchangeAPI
       );
-      
+
       // Create custom operations with account
       this.custom = new CustomOperations(
-        this.exchange, 
-        this.info, 
+        this.exchange,
+        this.info,
         undefined, // No private key
-        this.symbolConversion, 
+        this.symbolConversion,
         this.walletAddress,
         account // Pass the account
       );
-      
+
       this.isValidPrivateKey = true; // Account is valid for authentication
     } catch (error) {
-      console.warn("Invalid account provided. Some functionalities will be limited.", error);
+      console.warn('Invalid account provided. Some functionalities will be limited.', error);
       this.isValidPrivateKey = false;
     }
   }

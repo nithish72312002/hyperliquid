@@ -5,6 +5,7 @@ import { MetaAndAssetCtxs, SpotMetaAndAssetCtxs } from '../types';
 export class SymbolConversion {
   private assetToIndexMap: Map<string, number> = new Map();
   private exchangeToInternalNameMap: Map<string, string> = new Map();
+  private spotTokensSet: Set<string> = new Set(); // Track spot tokens specifically
   private httpApi: HttpApi;
   private refreshIntervalMs: number = 60000;
   private refreshInterval: any = null;
@@ -115,6 +116,7 @@ export class SymbolConversion {
 
       this.assetToIndexMap.clear();
       this.exchangeToInternalNameMap.clear();
+      this.spotTokensSet.clear(); // Clear spot tokens set
 
       // Handle perpetual assets
       perpMeta[0].universe.forEach((asset: { name: string }, index: number) => {
@@ -123,17 +125,30 @@ export class SymbolConversion {
         this.exchangeToInternalNameMap.set(asset.name, internalName);
       });
 
-      // Handle spot assets
-      spotMeta[0].tokens.forEach((token: any) => {
-        const universeItem = spotMeta[0].universe.find(
-          (item: any) => item.tokens[0] === token.index
-        );
-        if (universeItem) {
-          const internalName = `${token.name}-SPOT`;
-          const exchangeName = universeItem.name;
-          const index = universeItem.index;
-          this.assetToIndexMap.set(internalName, 10000 + index);
-          this.exchangeToInternalNameMap.set(exchangeName, internalName);
+      // Track all spot tokens
+      if (spotMeta[0].tokens && Array.isArray(spotMeta[0].tokens)) {
+        spotMeta[0].tokens.forEach((token: any) => {
+          if (token.name) {
+            this.spotTokensSet.add(token.name);
+          }
+        });
+      }
+
+      // Handle spot assets with base-quote format
+      spotMeta[0].universe.forEach((market: any) => {
+        const baseToken = spotMeta[0].tokens.find((t: any) => t.index === market.tokens[0]);
+        const quoteToken = spotMeta[0].tokens.find((t: any) => t.index === market.tokens[1]);
+
+        if (baseToken && quoteToken) {
+          // New format: BASE-QUOTE (e.g., "PURR-USDC")
+          const baseQuoteFormat = `${baseToken.name}-${quoteToken.name}`;
+
+          // Store the market index
+          const marketIndex = 10000 + market.index;
+
+          // Map using the base-quote format
+          this.assetToIndexMap.set(baseQuoteFormat, marketIndex);
+          this.exchangeToInternalNameMap.set(market.name, baseQuoteFormat);
         }
       });
 
@@ -174,7 +189,8 @@ export class SymbolConversion {
     for (const [asset, index] of this.assetToIndexMap.entries()) {
       if (asset.endsWith('-PERP')) {
         perp.push(asset);
-      } else if (asset.endsWith('-SPOT')) {
+      } else if (index >= 10000) {
+        // Spot assets have indices >= 10000
         spot.push(asset);
       }
     }
@@ -196,13 +212,17 @@ export class SymbolConversion {
       rSymbol = this.exchangeToInternalNameMap.get(symbol) || symbol;
     }
 
-    if (symbolMode === 'SPOT') {
-      if (!rSymbol.endsWith('-SPOT')) {
-        rSymbol = symbol + '-SPOT';
-      }
-    } else if (symbolMode === 'PERP') {
+    // Special handling for tokens that exist in both PERP and SPOT
+    if (symbolMode === 'PERP') {
+      // In PERP mode, add -PERP to symbols that don't already have it
       if (!rSymbol.endsWith('-PERP')) {
         rSymbol = symbol + '-PERP';
+      }
+    } else if (symbolMode === 'SPOT') {
+      // In SPOT mode, ensure we don't add -PERP to spot tokens
+      if (this.spotTokensSet.has(symbol)) {
+        // If it's a known spot token, use the original name
+        rSymbol = symbol;
       }
     }
 
@@ -255,5 +275,93 @@ export class SymbolConversion {
     symbolMode: string = ''
   ): Promise<any> {
     return this.convertSymbolsInObject(response, symbolsFields, symbolMode);
+  }
+
+  /**
+   * Process WebData2 response with targeted symbol conversion for better performance
+   * @param data The WebData2 API response
+   * @returns Processed data with converted symbols
+   */
+  async processWebData2(data: any): Promise<any> {
+    await this.ensureInitialized();
+
+    if (!data) return data;
+
+    // Create a deep copy to avoid modifying the original
+    const result = JSON.parse(JSON.stringify(data));
+
+    // Process only the specific sections of the data that need conversion
+    // instead of doing a full recursive traversal which can cause performance issues
+
+    // Process meta.universe (PERP assets)
+    if (result.meta?.universe) {
+      // Using console.log since there's no this.log method in the class
+      console.log(`Processing ${result.meta.universe.length} perp assets in WebData2...`);
+      result.meta.universe = await Promise.all(
+        result.meta.universe.map(async (asset: any) => {
+          asset.name = `${asset.name}-PERP`;
+          return asset;
+        })
+      );
+    }
+
+    // Process spotAssetCtxs (spot assets)
+    if (result.spotAssetCtxs) {
+      console.log(`Processing ${result.spotAssetCtxs.length} spot assets in WebData2...`);
+      for (const ctx of result.spotAssetCtxs) {
+        if (ctx.coin) {
+          ctx.id = ctx.coin;
+          // We'll use convertSymbol with SPOT mode instead of getSpotTokenName
+          ctx.coin = await this.convertSymbol(ctx.coin, '', 'SPOT');
+        }
+      }
+    }
+
+    // Process openOrders (critical for trading)
+    if (result.openOrders && Array.isArray(result.openOrders)) {
+      console.log(`Processing ${result.openOrders.length} open orders in WebData2...`);
+      result.openOrders = await Promise.all(
+        result.openOrders.map(async (order: any) => {
+          if (order.coin) {
+            order.coin = await this.convertSymbol(order.coin);
+          }
+          return order;
+        })
+      );
+    }
+
+    // Process twapStates (critical for TWAP orders)
+    if (result.twapStates && Array.isArray(result.twapStates)) {
+      console.log(`Processing ${result.twapStates.length} TWAP states in WebData2...`);
+      result.twapStates = await Promise.all(
+        result.twapStates.map(async (twapState: any) => {
+          // TWAP states are arrays with the second element containing the order info
+          if (
+            Array.isArray(twapState) &&
+            twapState.length > 1 &&
+            twapState[1] &&
+            twapState[1].coin
+          ) {
+            twapState[1].coin = await this.convertSymbol(twapState[1].coin);
+          }
+          return twapState;
+        })
+      );
+    }
+
+    // Process positions (critical for trading)
+    if (result.clearinghouseState?.assetPositions) {
+      console.log(`Processing positions in WebData2...`);
+      result.clearinghouseState.assetPositions = await Promise.all(
+        result.clearinghouseState.assetPositions.map(async (pos: any) => {
+          if (pos.position?.coin) {
+            pos.position.coin = await this.convertSymbol(pos.position.coin);
+          }
+          return pos;
+        })
+      );
+    }
+
+    return result;
   }
 }

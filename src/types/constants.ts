@@ -67,6 +67,7 @@ export enum InfoType {
   USER_TWAP_SLICE_FILLS_BY_TIME = 'userTwapSliceFillsByTime',
   TWAP_HISTORY = 'twapHistory',
   USER_TO_MULTI_SIG_SIGNERS = 'userToMultiSigSigners',
+  WEB_DATA2 = 'webData2',
 }
 
 export enum ExchangeType {

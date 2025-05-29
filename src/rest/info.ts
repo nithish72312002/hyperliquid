@@ -299,4 +299,9 @@ export class InfoAPI {
     await this.parent.ensureInitialized();
     return this.generalAPI.userToMultiSigSigners(user, rawResponse);
   }
+
+  async webData2(user?: string, rawResponse: boolean = false): Promise<any> {
+    await this.parent.ensureInitialized();
+    return this.generalAPI.webData2(user, rawResponse);
+  }
 }
