@@ -176,7 +176,7 @@ export class WebSocketSubscriptions {
 
     const messageHandler = async (message: any) => {
       if (message.channel === 'webData2') {
-        message = await this.symbolConversion.convertSymbolsInObject(message);
+        message = await this.symbolConversion.processWebData2(message);
         callback(message.data);
       }
     };
