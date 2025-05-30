@@ -300,52 +300,53 @@ export class SpotInfoAPI {
     });
 
     // Apply symbol conversion if needed
-    return tokensWithBalances
+    return tokensWithBalances;
   }
 
-    async getAllSpotBalances(user: string): Promise<Array<{
+  async getAllSpotBalances(user: string): Promise<
+    Array<{
       coin: string;
       token: number;
       total: string;
       hold: string;
       withdrawable: string;
       tokenId: string;
-  }>> {
-      // Get both the clearinghouse state and meta data
-      const [clearinghouseState, meta] = await Promise.all([
-          this.getSpotClearinghouseState(user, true),
-          this.getSpotMeta(true)
-      ]);
+    }>
+  > {
+    // Get both the clearinghouse state and meta data
+    const [clearinghouseState, meta] = await Promise.all([
+      this.getSpotClearinghouseState(user, true),
+      this.getSpotMeta(true),
+    ]);
 
-      // Create a mapping of token index to tokenId
-      const tokenIdMapping = new Map<number, string>();
-      
-      // Access the tokens array to get token IDs
-      meta.tokens.forEach((token: any) => {
-          if (token.tokenId) {
-              tokenIdMapping.set(token.index, token.tokenId);
-          }
-      });
+    // Create a mapping of token index to tokenId
+    const tokenIdMapping = new Map<number, string>();
 
-      // Process all balances
-      const allBalances = (clearinghouseState.balances as any[])
-          .map(balance => {
-              // Calculate withdrawable (total - hold)
-              const withdrawable = (parseFloat(balance.total) - parseFloat(balance.hold)).toString();
-              
-              // Get tokenId if available
-              const tokenId = tokenIdMapping.get(balance.token) || '';
-              
-              return {
-                  coin: balance.coin,
-                  token: balance.token,
-                  total: balance.total,
-                  hold: balance.hold,
-                  withdrawable: withdrawable,
-                  tokenId: tokenId
-              };
-          });
-      
-      return allBalances;
+    // Access the tokens array to get token IDs
+    meta.tokens.forEach((token: any) => {
+      if (token.tokenId) {
+        tokenIdMapping.set(token.index, token.tokenId);
+      }
+    });
+
+    // Process all balances
+    const allBalances = (clearinghouseState.balances as any[]).map(balance => {
+      // Calculate withdrawable (total - hold)
+      const withdrawable = (parseFloat(balance.total) - parseFloat(balance.hold)).toString();
+
+      // Get tokenId if available
+      const tokenId = tokenIdMapping.get(balance.token) || '';
+
+      return {
+        coin: balance.coin,
+        token: balance.token,
+        total: balance.total,
+        hold: balance.hold,
+        withdrawable: withdrawable,
+        tokenId: tokenId,
+      };
+    });
+
+    return allBalances;
   }
 }
