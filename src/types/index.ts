@@ -315,9 +315,41 @@ export interface UserFundingEntry {
 export type UserFunding = UserFundingEntry[];
 
 export interface UserNonFundingLedgerDelta {
-  coin: string;
-  type: 'deposit' | 'withdraw' | 'transfer' | 'liquidation';
-  usdc: string;
+  coin?: string;
+  type:
+    | 'deposit'
+    | 'withdraw'
+    | 'transfer'
+    | 'liquidation'
+    | 'vaultDeposit'
+    | 'vaultWithdraw'
+    | 'spotTransfer'
+    | 'internalTransfer'
+    | 'accountClassTransfer';
+  usdc?: string;
+
+  // spotTransfer fields
+  token?: string;
+  amount?: string;
+  usdcValue?: string;
+  user?: string;
+  destination?: string;
+  fee?: string;
+  nativeTokenFee?: string;
+
+  // withdraw fields
+  nonce?: number;
+
+  // accountClassTransfer fields
+  toPerp?: boolean;
+
+  // vaultWithdraw fields
+  vault?: string;
+  requestedUsd?: string;
+  commission?: string;
+  closingCost?: string;
+  basis?: string;
+  netWithdrawnUsd?: string;
 }
 
 export interface UserNonFundingLedgerEntry {

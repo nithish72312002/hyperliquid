@@ -926,12 +926,7 @@ export class ExchangeAPI {
         nonce: nonce,
       };
 
-      const signature = await signAgent(
-        this.wallet,
-        this.account,
-        action,
-        this.IS_MAINNET
-      );
+      const signature = await signAgent(this.wallet, this.account, action, this.IS_MAINNET);
 
       const payload = { action, nonce: action.nonce, signature };
       return this.httpApi.makeRequest(payload, 1);

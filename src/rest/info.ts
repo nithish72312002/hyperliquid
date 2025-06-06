@@ -2,6 +2,7 @@ import { RateLimiter } from '../utils/rateLimiter';
 import { GeneralInfoAPI } from './info/general';
 import { SpotInfoAPI } from './info/spot';
 import { PerpetualsInfoAPI } from './info/perpetuals';
+import { CustomInfoAPI } from './info/custom';
 import { HttpApi } from '../utils/helpers';
 import { SymbolConversion } from '../utils/symbolConversion';
 import { Hyperliquid } from '../index';
@@ -43,6 +44,7 @@ import { InfoType, ENDPOINTS } from '../types/constants';
 export class InfoAPI {
   public spot: SpotInfoAPI;
   public perpetuals: PerpetualsInfoAPI;
+  public custom: CustomInfoAPI;
   private httpApi: HttpApi;
   private generalAPI: GeneralInfoAPI;
   private symbolConversion: SymbolConversion;
@@ -61,6 +63,7 @@ export class InfoAPI {
     this.generalAPI = new GeneralInfoAPI(this.httpApi, this.symbolConversion, this.parent);
     this.spot = new SpotInfoAPI(this.httpApi, this.symbolConversion);
     this.perpetuals = new PerpetualsInfoAPI(this.httpApi, this.symbolConversion, this.parent);
+    this.custom = new CustomInfoAPI(this.httpApi);
   }
 
   async getAssetIndex(assetName: string): Promise<number | undefined> {
